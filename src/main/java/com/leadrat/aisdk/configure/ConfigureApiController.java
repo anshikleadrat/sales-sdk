@@ -5,6 +5,7 @@ import com.leadrat.aisdk.config.AiSdkProperties;
 import com.leadrat.aisdk.config.ReadOnlyEntityManagerProvider;
 import com.leadrat.aisdk.introspection.SchemaIntrospector;
 import com.leadrat.aisdk.security.PasswordStore;
+import com.leadrat.aisdk.security.SdkCredentials;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -24,16 +25,19 @@ public class ConfigureApiController {
     private final ConfigRepository configRepository;
     private final SchemaIntrospector introspector;
     private final PasswordStore passwordStore;
+    private final SdkCredentials credentials;
     private final ReadOnlyEntityManagerProvider readOnlyProvider;
     private final AuditLogService auditLog;
     private final AiSdkProperties properties;
 
     public ConfigureApiController(ConfigRepository configRepository, SchemaIntrospector introspector,
-                                  PasswordStore passwordStore, ReadOnlyEntityManagerProvider readOnlyProvider,
+                                  PasswordStore passwordStore, SdkCredentials credentials,
+                                  ReadOnlyEntityManagerProvider readOnlyProvider,
                                   AuditLogService auditLog, AiSdkProperties properties) {
         this.configRepository = configRepository;
         this.introspector = introspector;
         this.passwordStore = passwordStore;
+        this.credentials = credentials;
         this.readOnlyProvider = readOnlyProvider;
         this.auditLog = auditLog;
         this.properties = properties;
@@ -48,8 +52,9 @@ public class ConfigureApiController {
     public Map<String, Object> status() {
         Map<String, Object> status = new LinkedHashMap<>();
         status.put("setupCompleted", passwordStore.isSetupCompleted());
-        status.put("otpConfigured", properties.getSecurity().getOtp() != null && !properties.getSecurity().getOtp().isBlank());
-        status.put("dedicatedReadOnlyDatasource", readOnlyProvider.isDedicated());
+        status.put("otpConfigured", credentials.setupOtp() != null && !credentials.setupOtp().isBlank());
+        status.put("otpGenerated", credentials.setupOtpGenerated());
+        status.put("readOnlyEnforcement", readOnlyProvider.enforcement());
         return status;
     }
 
@@ -62,7 +67,7 @@ public class ConfigureApiController {
         out.put("guardrails", configRepository.guardrails());
         out.put("configVersion", configRepository.configVersion());
         out.put("limits", properties.getQuery());
-        out.put("dedicatedReadOnlyDatasource", readOnlyProvider.isDedicated());
+        out.put("readOnlyEnforcement", readOnlyProvider.enforcement());
         return out;
     }
 

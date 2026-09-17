@@ -11,7 +11,6 @@ public class AiSdkProperties {
     private boolean enabled = true;
     private Security security = new Security();
     private Storage storage = new Storage();
-    private Datasource datasource = new Datasource();
     private Llm llm = new Llm();
     private Query query = new Query();
     private License license = new License();
@@ -22,8 +21,6 @@ public class AiSdkProperties {
     public void setSecurity(Security security) { this.security = security; }
     public Storage getStorage() { return storage; }
     public void setStorage(Storage storage) { this.storage = storage; }
-    public Datasource getDatasource() { return datasource; }
-    public void setDatasource(Datasource datasource) { this.datasource = datasource; }
     public Llm getLlm() { return llm; }
     public void setLlm(Llm llm) { this.llm = llm; }
     public Query getQuery() { return query; }
@@ -54,44 +51,36 @@ public class AiSdkProperties {
         public void setSqlitePath(String sqlitePath) { this.sqlitePath = sqlitePath; }
     }
 
-    public static class Datasource {
-        private ReadOnly readonly = new ReadOnly();
-
-        public ReadOnly getReadonly() { return readonly; }
-        public void setReadonly(ReadOnly readonly) { this.readonly = readonly; }
-
-        public static class ReadOnly {
-            private String url;
-            private String username;
-            private String password;
-
-            public String getUrl() { return url; }
-            public void setUrl(String url) { this.url = url; }
-            public String getUsername() { return username; }
-            public void setUsername(String username) { this.username = username; }
-            public String getPassword() { return password; }
-            public void setPassword(String password) { this.password = password; }
-        }
-    }
-
     public static class Llm {
-        private String provider = "openrouter";
-        private String baseUrl = "https://openrouter.ai/api/v1";
-        private String apiKey;
-        private String plannerModel = "anthropic/claude-sonnet-4.5";
-        private String summarizerModel = "anthropic/claude-sonnet-4.5";
+        public static final String DEFAULT_BASE_URL = "https://openrouter.ai/api/v1";
+        public static final String DEFAULT_MODEL = "anthropic/claude-sonnet-4.5";
+
+        private String provider = env("OPENROUTER_PROVIDER", "openrouter");
+        private String baseUrl = env("OPENROUTER_BASE_URL", DEFAULT_BASE_URL);
+        private String apiKey = env("OPENROUTER_API_KEY", null);
+        private String plannerModel = env("OPENROUTER_PLANNER_MODEL", env("OPENROUTER_MODEL", DEFAULT_MODEL));
+        private String summarizerModel = env("OPENROUTER_SUMMARIZER_MODEL", env("OPENROUTER_MODEL", DEFAULT_MODEL));
         private int timeoutSeconds = 30;
 
+        private static String env(String name, String fallback) {
+            String value = System.getenv(name);
+            return value == null || value.isBlank() ? fallback : value.trim();
+        }
+
+        private static String orDefault(String value, String fallback) {
+            return value == null || value.isBlank() ? fallback : value.trim();
+        }
+
         public String getProvider() { return provider; }
-        public void setProvider(String provider) { this.provider = provider; }
+        public void setProvider(String provider) { this.provider = orDefault(provider, "openrouter"); }
         public String getBaseUrl() { return baseUrl; }
-        public void setBaseUrl(String baseUrl) { this.baseUrl = baseUrl; }
+        public void setBaseUrl(String baseUrl) { this.baseUrl = orDefault(baseUrl, DEFAULT_BASE_URL); }
         public String getApiKey() { return apiKey; }
-        public void setApiKey(String apiKey) { this.apiKey = apiKey; }
+        public void setApiKey(String apiKey) { this.apiKey = orDefault(apiKey, this.apiKey); }
         public String getPlannerModel() { return plannerModel; }
-        public void setPlannerModel(String plannerModel) { this.plannerModel = plannerModel; }
+        public void setPlannerModel(String plannerModel) { this.plannerModel = orDefault(plannerModel, DEFAULT_MODEL); }
         public String getSummarizerModel() { return summarizerModel; }
-        public void setSummarizerModel(String summarizerModel) { this.summarizerModel = summarizerModel; }
+        public void setSummarizerModel(String summarizerModel) { this.summarizerModel = orDefault(summarizerModel, DEFAULT_MODEL); }
         public int getTimeoutSeconds() { return timeoutSeconds; }
         public void setTimeoutSeconds(int timeoutSeconds) { this.timeoutSeconds = timeoutSeconds; }
     }

@@ -182,8 +182,8 @@
             schema = await AiSdk.request('/configure/schema');
             document.getElementById('version').textContent = 'config version ' + schema.configVersion;
             const roBadge = document.getElementById('ro-badge');
-            roBadge.textContent = schema.dedicatedReadOnlyDatasource ? 'dedicated read-only datasource' : 'primary datasource fallback';
-            roBadge.className = 'badge ' + (schema.dedicatedReadOnlyDatasource ? 'on' : 'off');
+            roBadge.textContent = schema.readOnlyEnforcement ? 'read-only guardrail active' : 'read-only guardrail unknown';
+            roBadge.className = 'badge ' + (schema.readOnlyEnforcement ? 'on' : 'off');
             render();
         } catch (e) {
             AiSdk.message(msg, e.message, 'err');

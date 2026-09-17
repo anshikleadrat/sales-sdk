@@ -2,6 +2,7 @@ package com.leadrat.aisdk.query;
 
 import com.leadrat.aisdk.audit.AuditLogService;
 import com.leadrat.aisdk.config.AiSdkProperties;
+import com.leadrat.aisdk.config.ReadOnlyViolationException;
 import com.leadrat.aisdk.security.JwtAuthFilter;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
@@ -96,6 +97,14 @@ public class QueryController {
             results = traversalEngine.traverse(request.targets(), effectivePlan);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (RuntimeException e) {
+            ReadOnlyViolationException violation = readOnlyViolation(e);
+            if (violation == null) {
+                throw e;
+            }
+            auditLog.record(request.question(), targetSummary(request), String.join(",", targetEntities), 0, false,
+                    System.currentTimeMillis() - started, properties.getLlm().getPlannerModel());
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", violation.getMessage()));
         }
 
         Map<String, Object> data = new LinkedHashMap<>();
@@ -133,6 +142,18 @@ public class QueryController {
         auditLog.record(request.question(), targetSummary(request), String.join(",", entitiesTouched),
                 totalRows, false, latency, properties.getLlm().getSummarizerModel());
         return ResponseEntity.ok(response);
+    }
+
+    private ReadOnlyViolationException readOnlyViolation(Throwable error) {
+        for (Throwable current = error; current != null; current = current.getCause()) {
+            if (current instanceof ReadOnlyViolationException violation) {
+                return violation;
+            }
+            if (current.getCause() == current) {
+                break;
+            }
+        }
+        return null;
     }
 
     @SuppressWarnings("unchecked")

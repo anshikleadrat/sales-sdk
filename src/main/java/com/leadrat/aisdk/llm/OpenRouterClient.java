@@ -33,7 +33,7 @@ public class OpenRouterClient {
     public String complete(String model, List<ChatMessage> messages, Map<String, Object> responseFormat) {
         String apiKey = properties.getLlm().getApiKey();
         if (apiKey == null || apiKey.isBlank()) {
-            throw new IllegalStateException("ai-sdk.llm.api-key is not configured");
+            throw new IllegalStateException("OpenRouter API key is not configured. Set the OPENROUTER_API_KEY environment variable or ai-sdk.llm.api-key.");
         }
         ChatCompletionRequest request = new ChatCompletionRequest(model, messages, 0.0, responseFormat);
         ChatCompletionResponse response = restClient.post()

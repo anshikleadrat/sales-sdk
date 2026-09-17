@@ -26,8 +26,11 @@ import com.leadrat.aisdk.security.AuthController;
 import com.leadrat.aisdk.security.JwtAuthFilter;
 import com.leadrat.aisdk.security.JwtService;
 import com.leadrat.aisdk.security.PasswordStore;
+import com.leadrat.aisdk.security.SdkCredentials;
+import com.leadrat.aisdk.security.SecretStore;
 import com.leadrat.aisdk.security.SetupController;
 import jakarta.persistence.EntityManagerFactory;
+import javax.sql.DataSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationRunner;
@@ -64,8 +67,18 @@ public class AiSdkAutoConfiguration {
     }
 
     @Bean
-    public JwtService aiSdkJwtService(AiSdkProperties properties) {
-        return new JwtService(properties);
+    public SecretStore aiSdkSecretStore(SqliteStore store) {
+        return new SecretStore(store.jdbc());
+    }
+
+    @Bean
+    public SdkCredentials aiSdkCredentials(AiSdkProperties properties, SecretStore secretStore) {
+        return new SdkCredentials(properties, secretStore);
+    }
+
+    @Bean
+    public JwtService aiSdkJwtService(AiSdkProperties properties, SdkCredentials credentials) {
+        return new JwtService(properties, credentials);
     }
 
     @Bean
@@ -85,8 +98,8 @@ public class AiSdkAutoConfiguration {
     }
 
     @Bean
-    public SetupController aiSdkSetupController(AiSdkProperties properties, PasswordStore passwordStore) {
-        return new SetupController(properties, passwordStore);
+    public SetupController aiSdkSetupController(SdkCredentials credentials, PasswordStore passwordStore) {
+        return new SetupController(credentials, passwordStore);
     }
 
     @Bean
@@ -102,8 +115,9 @@ public class AiSdkAutoConfiguration {
 
     @Bean
     public ReadOnlyEntityManagerProvider aiSdkReadOnlyEntityManagerProvider(AiSdkProperties properties,
-                                                                           EntityManagerFactory entityManagerFactory) {
-        return new ReadOnlyEntityManagerProvider(properties, entityManagerFactory);
+                                                                           EntityManagerFactory entityManagerFactory,
+                                                                           DataSource dataSource) {
+        return new ReadOnlyEntityManagerProvider(properties, entityManagerFactory, dataSource);
     }
 
     @Bean
@@ -181,10 +195,11 @@ public class AiSdkAutoConfiguration {
     public ConfigureApiController aiSdkConfigureApiController(ConfigRepository configRepository,
                                                               SchemaIntrospector introspector,
                                                               PasswordStore passwordStore,
+                                                              SdkCredentials credentials,
                                                               ReadOnlyEntityManagerProvider readOnlyProvider,
                                                               AuditLogService auditLog,
                                                               AiSdkProperties properties) {
-        return new ConfigureApiController(configRepository, introspector, passwordStore, readOnlyProvider, auditLog, properties);
+        return new ConfigureApiController(configRepository, introspector, passwordStore, credentials, readOnlyProvider, auditLog, properties);
     }
 
     @Bean
@@ -193,14 +208,29 @@ public class AiSdkAutoConfiguration {
     }
 
     @Bean
-    public ApplicationRunner aiSdkStartupRunner(SchemaIntrospector introspector, LicenseValidator licenseValidator) {
+    public ApplicationRunner aiSdkStartupRunner(SchemaIntrospector introspector, LicenseValidator licenseValidator,
+                                                SdkCredentials credentials, PasswordStore passwordStore) {
         return args -> {
             try {
                 introspector.scan();
             } catch (RuntimeException e) {
                 log.warn("ai-sdk: startup introspection failed ({})", e.toString());
             }
+            announceSetup(credentials, passwordStore);
             licenseValidator.start();
         };
+    }
+
+    private void announceSetup(SdkCredentials credentials, PasswordStore passwordStore) {
+        if (passwordStore.isSetupCompleted()) {
+            return;
+        }
+        if (credentials.setupOtpGenerated()) {
+            log.warn("ai-sdk: no ai-sdk.security.otp configured, so one was generated and stored: {} — "
+                    + "open /ai-sdk/setup to exchange it for an admin password. Set ai-sdk.security.otp "
+                    + "explicitly to keep it out of the logs.", credentials.setupOtp());
+        } else {
+            log.info("ai-sdk: setup is not complete; open /ai-sdk/setup and use the configured OTP");
+        }
     }
 }

@@ -14,11 +14,15 @@ Requires Spring Boot 4.1+ and Java 21 in the host application — it is built ag
 
 ## Install
 
+Add the dependency. That is the whole integration — the SDK auto-configures itself, mounts its
+own endpoints and UI under `/ai-sdk`, and needs no `@Import`, component scan change, YAML block
+or security configuration in the host application.
+
 ```xml
 <dependency>
     <groupId>com.leadrat</groupId>
     <artifactId>ai-query-sdk</artifactId>
-    <version>1.0.0</version>
+    <version>1.2.0</version>
 </dependency>
 ```
 
@@ -44,9 +48,50 @@ and a token with `read:packages`:
 </servers>
 ```
 
-Auto-configuration picks the SDK up; no `@Import` or component scan change is needed.
+Add the SQLite store to `.gitignore`:
+
+```
+ai-sdk-data/
+```
+
+### What the SDK wires up for you
+
+- **Its own Spring Security chain.** When Spring Security is on the classpath the SDK
+  contributes a `SecurityFilterChain` scoped to `/ai-sdk/**`, ordered ahead of the host's
+  chains. Without it a host resource server would try to decode the SDK's own tokens as its
+  own and reject them before the SDK's `JwtAuthFilter` ever ran. The host's chains are left
+  untouched and continue to guard every other path.
+- **An admin password OTP.** If `ai-sdk.security.otp` is unset, a one-time OTP is generated on
+  first start, stored in the SQLite store and logged at `WARN` until setup completes. Set the
+  property explicitly to keep it out of the logs.
+- **A JWT signing secret.** If `ai-sdk.security.jwt-secret` is unset, a 384-bit secret is
+  generated and persisted in the SQLite store, so issued tokens survive restarts. An explicitly
+  configured secret must be at least 256 bits.
+- **The LLM key.** If `ai-sdk.llm.api-key` is unset, the SDK falls back to the host's
+  `OPENROUTER_API_KEY` (and `OPENROUTER_BASE_URL`) environment variables, so an application
+  already calling OpenRouter needs no new credential.
 
 ## Configure
+
+Every setting is optional and has a default. The SDK binds under `ai-sdk`, so plain environment
+variables work through Spring's relaxed binding without any YAML at all:
+
+| Environment variable | Default |
+|---|---|
+| `AI_SDK_ENABLED` | `true` |
+| `AI_SDK_SECURITY_OTP` | generated and stored on first start |
+| `AI_SDK_SECURITY_JWT_SECRET` | generated and stored on first start |
+| `AI_SDK_SECURITY_JWT_EXPIRY_MINUTES` | `60` |
+| `AI_SDK_SECURITY_ALLOWED_ORIGINS` | empty (no CORS headers) |
+| `AI_SDK_STORAGE_SQLITE_PATH` | `./ai-sdk-data/sdk-config.db` |
+| `AI_SDK_LLM_API_KEY` | `OPENROUTER_API_KEY` |
+| `AI_SDK_LLM_BASE_URL` | `OPENROUTER_BASE_URL`, else the OpenRouter default |
+| `AI_SDK_LLM_PLANNER_MODEL` | `anthropic/claude-sonnet-4.5` |
+| `AI_SDK_LLM_SUMMARIZER_MODEL` | `anthropic/claude-sonnet-4.5` |
+| `AI_SDK_QUERY_RATE_LIMIT_PER_MINUTE` | `30` |
+| `AI_SDK_QUERY_DB_TIMEOUT_SECONDS` | `5` |
+
+The equivalent YAML, for a deployment that prefers to pin everything explicitly:
 
 ```yaml
 ai-sdk:
@@ -60,12 +105,6 @@ ai-sdk:
 
   storage:
     sqlite-path: ${AI_SDK_SQLITE_PATH:./ai-sdk-data/sdk-config.db}
-
-  datasource:
-    readonly:
-      url: ${AI_SDK_RO_DB_URL:}
-      username: ${AI_SDK_RO_DB_USER:}
-      password: ${AI_SDK_RO_DB_PASSWORD:}
 
   llm:
     provider: openrouter
@@ -92,17 +131,41 @@ ai-sdk:
     check-interval-hours: 24
 ```
 
-`jwt-secret` must be at least 256 bits. If `datasource.readonly.url` is blank the SDK
-falls back to the application's primary `DataSource` and logs a startup warning; the
-recommended posture is a dedicated `SELECT`-only PostgreSQL role:
+`jwt-secret` must be at least 256 bits.
 
-```sql
-CREATE ROLE ai_sdk_ro LOGIN PASSWORD '...';
-GRANT CONNECT ON DATABASE app TO ai_sdk_ro;
-GRANT USAGE ON SCHEMA public TO ai_sdk_ro;
-GRANT SELECT ON ALL TABLES IN SCHEMA public TO ai_sdk_ro;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO ai_sdk_ro;
-```
+### Host requirements
+
+The SDK builds a private read-only persistence unit over the host's own entities, so the host
+needs a Spring Data JPA setup with an `EntityManagerFactory` and a `DataSource`. No
+`persistence.xml` is required — managed types and their `@Converter` classes are discovered
+from the host's live metamodel.
+
+## Read-only guardrail
+
+The SDK does not take separate database credentials. It reuses the application's own
+`DataSource` — the one already mounted into the Spring app — and enforces read-only
+access in the SDK instead of relying on a `SELECT`-only role:
+
+- Queries run through a private `EntityManagerFactory` (`aiSdkReadOnly`) built over a
+  `ReadOnlyDataSource` wrapper, isolated from the application's persistence context.
+- Every connection handed to that factory is put in JDBC read-only mode and, on
+  PostgreSQL, gets `SET SESSION CHARACTERISTICS AS TRANSACTION READ ONLY`, a
+  `statement_timeout` and an `idle_in_transaction_session_timeout` derived from
+  `query.db-timeout-seconds`. The session state is reset before the connection returns
+  to the pool, and discarded if the reset fails.
+- Every SQL string reaching `prepareStatement`/`execute` is checked by
+  `ReadOnlySqlGuard`: the statement must start with `SELECT`/`WITH`, may not be a
+  multi-statement batch, and may not contain DML, DDL, transaction-control, `COPY`,
+  sequence-mutating or file/large-object keywords. `CallableStatement` is refused
+  outright.
+- Hibernate sessions are opened with `defaultReadOnly` and `FlushMode.MANUAL`, so no
+  entity change can ever be flushed.
+- Attempts to turn the guardrail off (`setReadOnly(false)`) throw, and any violation
+  surfaces on `POST /ai-sdk/query` as `403` with the guardrail message.
+
+Traversal itself is built with the JPA Criteria API and bound parameters, so no
+LLM-produced text is ever concatenated into SQL; the guardrail is the second line of
+defence behind that.
 
 ## Use
 
@@ -120,7 +183,7 @@ The UI pages link to each other in setup order:
 |---|---|---|---|
 | POST | `/ai-sdk/setup` | OTP (one-time) | Set admin password |
 | POST | `/ai-sdk/auth/token` | Password | Issue JWT |
-| GET | `/ai-sdk/status` | None | Setup and datasource status |
+| GET | `/ai-sdk/status` | None | Setup status and read-only enforcement mode |
 | GET | `/ai-sdk/setup`, `/ai-sdk/auth`, `/ai-sdk/configure`, `/ai-sdk/console`, `/ai-sdk/embed` | None (shell) | UI pages |
 | GET | `/ai-sdk/configure/schema` | JWT | Introspected schema + current config |
 | POST | `/ai-sdk/configure/entities` | JWT | Save entity/field/relationship config |
@@ -227,10 +290,14 @@ right setting when everything is same-origin.
 
 ## Operations
 
-- The SQLite store holds configuration, the bcrypt admin password hash and the audit log.
-  It never holds business rows. Keep it out of version control; the SDK creates it `0600`.
-- Password recovery: stop the app, delete the single row in `admin_setup`, redeploy with a
-  fresh OTP, then call `/ai-sdk/setup` once more.
+- The SQLite store holds configuration, the bcrypt admin password hash, the generated OTP and
+  JWT signing secret, and the audit log. It never holds business rows. Keep it out of version
+  control; the SDK creates it `0600`.
+- Password recovery: stop the app, delete the single row in `admin_setup`, and either configure
+  a fresh `ai-sdk.security.otp` or delete the `setup-otp` row in `sdk_secret` so a new one is
+  generated and logged. Then call `/ai-sdk/setup` once more.
+- Deleting the `jwt-secret` row in `sdk_secret` rotates the signing key and invalidates every
+  issued token on the next start.
 - Results are cached in-process for 20 minutes, keyed on targets, question, effective
   options and the configuration version, so saving configuration invalidates stale answers.
 
@@ -246,8 +313,8 @@ and repo are `github.owner` / `github.repo` properties in `pom.xml` (defaults: `
 workflow's own `GITHUB_TOKEN`. No secret needs to be created:
 
 ```bash
-git tag v1.0.0
-git push origin v1.0.0
+git tag v1.2.0
+git push origin v1.2.0
 ```
 
 `.github/workflows/build.yml` builds every push to master and every pull request.

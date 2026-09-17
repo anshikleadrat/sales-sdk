@@ -1,6 +1,5 @@
 package com.leadrat.aisdk.security;
 
-import com.leadrat.aisdk.config.AiSdkProperties;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -16,11 +15,11 @@ import java.util.Map;
 @RequestMapping("/ai-sdk")
 public class SetupController {
 
-    private final AiSdkProperties properties;
+    private final SdkCredentials credentials;
     private final PasswordStore passwordStore;
 
-    public SetupController(AiSdkProperties properties, PasswordStore passwordStore) {
-        this.properties = properties;
+    public SetupController(SdkCredentials credentials, PasswordStore passwordStore) {
+        this.credentials = credentials;
         this.passwordStore = passwordStore;
     }
 
@@ -28,7 +27,7 @@ public class SetupController {
 
     @PostMapping("/setup")
     public ResponseEntity<?> setup(@RequestBody SetupRequest request) {
-        String configuredOtp = properties.getSecurity().getOtp();
+        String configuredOtp = credentials.setupOtp();
         if (configuredOtp == null || configuredOtp.isBlank()) {
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                     .body(Map.of("error", "No setup OTP configured for this deployment"));

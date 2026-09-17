@@ -15,13 +15,9 @@ public class JwtService {
     private final AiSdkProperties properties;
     private final SecretKey key;
 
-    public JwtService(AiSdkProperties properties) {
+    public JwtService(AiSdkProperties properties, SdkCredentials credentials) {
         this.properties = properties;
-        String secret = properties.getSecurity().getJwtSecret();
-        if (secret == null || secret.getBytes(StandardCharsets.UTF_8).length < 32) {
-            throw new IllegalStateException("ai-sdk.security.jwt-secret must be set and at least 256 bits (32 bytes)");
-        }
-        this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+        this.key = Keys.hmacShaKeyFor(credentials.jwtSecret().getBytes(StandardCharsets.UTF_8));
     }
 
     public String issue(String subject) {

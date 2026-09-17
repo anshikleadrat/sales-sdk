@@ -89,6 +89,12 @@ public class SqliteConfig {
                 llm_model       TEXT
             )""");
         jdbc.execute("""
+            CREATE TABLE IF NOT EXISTS sdk_secret (
+                name       TEXT PRIMARY KEY,
+                value      TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )""");
+        jdbc.execute("""
             CREATE TABLE IF NOT EXISTS config_meta (
                 id      INTEGER PRIMARY KEY CHECK (id = 1),
                 version INTEGER NOT NULL

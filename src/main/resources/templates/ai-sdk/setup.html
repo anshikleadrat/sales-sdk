@@ -54,7 +54,7 @@
             const status = await AiSdk.request('/status');
             document.getElementById('s-setup').textContent = status.setupCompleted ? 'yes' : 'no';
             document.getElementById('s-otp').textContent = status.otpConfigured ? 'yes' : 'no';
-            document.getElementById('s-ro').textContent = status.dedicatedReadOnlyDatasource ? 'yes' : 'no (falling back to the primary datasource)';
+            document.getElementById('s-ro').textContent = status.readOnlyEnforcement ? 'enforced (' + status.readOnlyEnforcement + ')' : 'unknown';
             if (status.setupCompleted) {
                 AiSdk.message(statusMsg, 'Setup is already complete. Continue to the token page to sign in.', 'warn');
                 document.getElementById('submit').disabled = true;
