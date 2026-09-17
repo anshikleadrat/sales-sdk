@@ -1,6 +1,6 @@
 package com.leadrat.aisdk.license;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.leadrat.aisdk.config.AiSdkProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

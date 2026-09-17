@@ -1,7 +1,6 @@
 package com.leadrat.aisdk.query;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.leadrat.aisdk.config.AiSdkProperties;
 import com.leadrat.aisdk.llm.OpenRouterClient;
 import com.leadrat.aisdk.llm.dto.ChatMessage;
@@ -36,7 +35,7 @@ public class Summarizer {
         String serialized;
         try {
             serialized = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(data);
-        } catch (JsonProcessingException e) {
+        } catch (RuntimeException e) {
             serialized = String.valueOf(data);
         }
         String instructions = entityInstructions.isEmpty()

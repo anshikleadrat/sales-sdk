@@ -1,6 +1,6 @@
 package com.leadrat.aisdk.query;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.leadrat.aisdk.config.AiSdkProperties;
 import com.leadrat.aisdk.llm.OpenRouterClient;
 import com.leadrat.aisdk.llm.dto.ChatMessage;

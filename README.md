@@ -9,6 +9,9 @@ Everything runs inside the host process. No customer data, database credentials 
 API key leaves the deployment; the only outbound vendor call is a metadata-only license
 check, and it is skipped unless a license key and server URL are configured.
 
+Requires Spring Boot 4.1+ and Java 21 in the host application — it is built against Boot 4
+(Spring Framework 7, Hibernate 7, Jackson 3) and will not load in a Boot 3 app.
+
 ## Install
 
 ```xml
