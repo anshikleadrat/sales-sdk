@@ -95,6 +95,69 @@ public class SqliteConfig {
                 created_at TEXT NOT NULL
             )""");
         jdbc.execute("""
+            CREATE TABLE IF NOT EXISTS meeting (
+                id                       TEXT PRIMARY KEY,
+                lead_entity              TEXT,
+                lead_id                  TEXT NOT NULL,
+                title                    TEXT,
+                agenda                   TEXT,
+                scheduled_at             TEXT NOT NULL,
+                duration_minutes         INTEGER NOT NULL DEFAULT 60,
+                meeting_link             TEXT,
+                conference_id            TEXT,
+                calendar_event_id        TEXT,
+                calendar_ical_uid        TEXT,
+                calendar_sync_status     TEXT,
+                calendar_sync_error      TEXT,
+                calendar_synced_at       TEXT,
+                recall_calendar_event_id TEXT,
+                recall_bot_id            TEXT,
+                recall_bot_status        TEXT,
+                recall_scheduled_at      TEXT,
+                recall_error             TEXT,
+                status                   TEXT NOT NULL DEFAULT 'SCHEDULED',
+                created_at               TEXT NOT NULL,
+                updated_at               TEXT
+            )""");
+        jdbc.execute("CREATE INDEX IF NOT EXISTS idx_meeting_lead ON meeting (lead_id, scheduled_at DESC)");
+        jdbc.execute("CREATE INDEX IF NOT EXISTS idx_meeting_bot ON meeting (recall_bot_id)");
+        jdbc.execute("CREATE INDEX IF NOT EXISTS idx_meeting_ical ON meeting (calendar_ical_uid)");
+        jdbc.execute("""
+            CREATE TABLE IF NOT EXISTS meeting_discussion (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                meeting_id    TEXT,
+                lead_entity   TEXT,
+                lead_id       TEXT,
+                provider      TEXT NOT NULL DEFAULT 'RECALL_AI',
+                external_id   TEXT NOT NULL,
+                meeting_title TEXT,
+                meeting_url   TEXT,
+                discussion    TEXT,
+                participants  TEXT,
+                started_at    TEXT,
+                ended_at      TEXT,
+                occurred_at   TEXT NOT NULL,
+                received_at   TEXT NOT NULL,
+                match_status  TEXT NOT NULL DEFAULT 'UNMATCHED',
+                UNIQUE (provider, external_id)
+            )""");
+        jdbc.execute("CREATE INDEX IF NOT EXISTS idx_discussion_lead ON meeting_discussion (lead_id, occurred_at DESC)");
+        jdbc.execute("CREATE INDEX IF NOT EXISTS idx_discussion_meeting ON meeting_discussion (meeting_id)");
+        jdbc.execute("""
+            CREATE TABLE IF NOT EXISTS google_credential (
+                id                      INTEGER PRIMARY KEY CHECK (id = 1),
+                google_email            TEXT,
+                refresh_token_encrypted TEXT NOT NULL,
+                scopes                  TEXT,
+                recall_calendar_id      TEXT,
+                recall_status           TEXT,
+                recall_error            TEXT,
+                recall_synced_at        TEXT,
+                connected_at            TEXT,
+                last_refresh_at         TEXT,
+                revoked_at              TEXT
+            )""");
+        jdbc.execute("""
             CREATE TABLE IF NOT EXISTS config_meta (
                 id      INTEGER PRIMARY KEY CHECK (id = 1),
                 version INTEGER NOT NULL

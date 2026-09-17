@@ -14,6 +14,7 @@ public class AiSdkProperties {
     private Llm llm = new Llm();
     private Query query = new Query();
     private License license = new License();
+    private Meeting meeting = new Meeting();
 
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
@@ -27,6 +28,8 @@ public class AiSdkProperties {
     public void setQuery(Query query) { this.query = query; }
     public License getLicense() { return license; }
     public void setLicense(License license) { this.license = license; }
+    public Meeting getMeeting() { return meeting; }
+    public void setMeeting(Meeting meeting) { this.meeting = meeting; }
 
     public static class Security {
         private String otp;
@@ -127,5 +130,92 @@ public class AiSdkProperties {
         public void setServerUrl(String serverUrl) { this.serverUrl = serverUrl; }
         public int getCheckIntervalHours() { return checkIntervalHours; }
         public void setCheckIntervalHours(int checkIntervalHours) { this.checkIntervalHours = checkIntervalHours; }
+    }
+
+    public static class Meeting {
+        private boolean enabled = false;
+        private String leadEntity = "Lead";
+        private int maxDiscussionsPerLead = 5;
+        private int discussionCharLimit = 6000;
+        private Google google = new Google();
+        private Recall recall = new Recall();
+
+        public boolean isEnabled() { return enabled; }
+        public void setEnabled(boolean enabled) { this.enabled = enabled; }
+        public String getLeadEntity() { return leadEntity; }
+        public void setLeadEntity(String leadEntity) { this.leadEntity = leadEntity; }
+        public int getMaxDiscussionsPerLead() { return maxDiscussionsPerLead; }
+        public void setMaxDiscussionsPerLead(int maxDiscussionsPerLead) { this.maxDiscussionsPerLead = maxDiscussionsPerLead; }
+        public int getDiscussionCharLimit() { return discussionCharLimit; }
+        public void setDiscussionCharLimit(int discussionCharLimit) { this.discussionCharLimit = discussionCharLimit; }
+        public Google getGoogle() { return google; }
+        public void setGoogle(Google google) { this.google = google; }
+        public Recall getRecall() { return recall; }
+        public void setRecall(Recall recall) { this.recall = recall; }
+    }
+
+    public static class Google {
+        private boolean enabled = false;
+        private String clientId = "";
+        private String clientSecret = "";
+        private String redirectUri = "";
+        private String tokenEncryptionKey = "";
+        private String postConnectRedirect = "";
+
+        public boolean isEnabled() { return enabled; }
+        public void setEnabled(boolean enabled) { this.enabled = enabled; }
+        public String getClientId() { return clientId; }
+        public void setClientId(String clientId) { this.clientId = clientId; }
+        public String getClientSecret() { return clientSecret; }
+        public void setClientSecret(String clientSecret) { this.clientSecret = clientSecret; }
+        public String getRedirectUri() { return redirectUri; }
+        public void setRedirectUri(String redirectUri) { this.redirectUri = redirectUri; }
+        public String getTokenEncryptionKey() { return tokenEncryptionKey; }
+        public void setTokenEncryptionKey(String tokenEncryptionKey) { this.tokenEncryptionKey = tokenEncryptionKey; }
+        public String getPostConnectRedirect() { return postConnectRedirect; }
+        public void setPostConnectRedirect(String postConnectRedirect) { this.postConnectRedirect = postConnectRedirect; }
+    }
+
+    public static class Recall {
+        private boolean enabled = false;
+        private String baseUrl = "https://us-east-1.recall.ai";
+        private String apiKey = "";
+        private String webhookSecret = "";
+        private String botName = "AI SDK Notetaker";
+        private boolean storeTranscript = true;
+        private String language = "auto";
+        private boolean autoTranscribe = true;
+        private String transcriptMode = "prioritize_accuracy";
+        private int joinEarlyMinutes = 2;
+        private int joinGraceMinutes = 30;
+        private int directBotWindowMinutes = 15;
+        private int reconcileSeconds = 600;
+
+        public boolean isEnabled() { return enabled; }
+        public void setEnabled(boolean enabled) { this.enabled = enabled; }
+        public String getBaseUrl() { return baseUrl; }
+        public void setBaseUrl(String baseUrl) { this.baseUrl = baseUrl; }
+        public String getApiKey() { return apiKey; }
+        public void setApiKey(String apiKey) { this.apiKey = apiKey; }
+        public String getWebhookSecret() { return webhookSecret; }
+        public void setWebhookSecret(String webhookSecret) { this.webhookSecret = webhookSecret; }
+        public String getBotName() { return botName; }
+        public void setBotName(String botName) { this.botName = botName; }
+        public boolean isStoreTranscript() { return storeTranscript; }
+        public void setStoreTranscript(boolean storeTranscript) { this.storeTranscript = storeTranscript; }
+        public String getLanguage() { return language; }
+        public void setLanguage(String language) { this.language = language; }
+        public boolean isAutoTranscribe() { return autoTranscribe; }
+        public void setAutoTranscribe(boolean autoTranscribe) { this.autoTranscribe = autoTranscribe; }
+        public String getTranscriptMode() { return transcriptMode; }
+        public void setTranscriptMode(String transcriptMode) { this.transcriptMode = transcriptMode; }
+        public int getJoinEarlyMinutes() { return joinEarlyMinutes; }
+        public void setJoinEarlyMinutes(int joinEarlyMinutes) { this.joinEarlyMinutes = joinEarlyMinutes; }
+        public int getJoinGraceMinutes() { return joinGraceMinutes; }
+        public void setJoinGraceMinutes(int joinGraceMinutes) { this.joinGraceMinutes = joinGraceMinutes; }
+        public int getDirectBotWindowMinutes() { return directBotWindowMinutes; }
+        public void setDirectBotWindowMinutes(int directBotWindowMinutes) { this.directBotWindowMinutes = directBotWindowMinutes; }
+        public int getReconcileSeconds() { return reconcileSeconds; }
+        public void setReconcileSeconds(int reconcileSeconds) { this.reconcileSeconds = reconcileSeconds; }
     }
 }

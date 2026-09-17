@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>AI Query SDK — Meetings</title>
+    <link rel="stylesheet" th:href="@{/ai-sdk/assets/styles.css}"/>
+</head>
+<body th:attr="data-base=@{/ai-sdk}">
+<div th:replace="~{ai-sdk/fragments :: topbar}"></div>
+<main>
+    <h1>Step 4 — Connect Google and generate meeting links</h1>
+    <p class="sub">One Google account backs every meeting link this deployment generates. What is said in those meetings is transcribed and stored against the lead, and every answer the SDK writes about that lead is grounded in it.</p>
+
+    <div class="steps">
+        <a th:href="@{/ai-sdk/configure}">Configure schema<span>Choose entities, fields and guardrails</span></a>
+        <a th:href="@{/ai-sdk/console}">Query console<span>See discussions feed the answer</span></a>
+        <a th:href="@{/ai-sdk/embed}">Embed<span>Put the button in your app</span></a>
+    </div>
+
+    <div class="card">
+        <h2>Google account</h2>
+        <div class="row">
+            <button id="connect">Connect Google account</button>
+            <button id="disconnect" class="secondary">Disconnect</button>
+            <button id="refresh" class="secondary">Refresh status</button>
+            <span id="google-badge" class="badge">checking…</span>
+            <span id="bot-badge" class="badge">checking…</span>
+        </div>
+        <div id="google-msg" class="msg"></div>
+        <table>
+            <tbody>
+            <tr><td>Meeting feature</td><td id="s-enabled" class="muted">checking…</td></tr>
+            <tr><td>Connected account</td><td id="s-email" class="muted">checking…</td></tr>
+            <tr><td>Can generate links</td><td id="s-links" class="muted">checking…</td></tr>
+            <tr><td>Notetaker bot</td><td id="s-bot" class="muted">checking…</td></tr>
+            <tr><td>Recall calendar</td><td id="s-recall" class="muted">checking…</td></tr>
+            <tr><td>Lead entity</td><td id="s-lead" class="muted">checking…</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="card">
+        <h2>Generate a meeting link</h2>
+        <p class="sub">The same call your own frontend button makes: <code>POST /ai-sdk/meetings</code>.</p>
+        <div class="row">
+            <div class="grow"><label for="lead-id">Lead id</label><input id="lead-id" type="text" placeholder="8890"/></div>
+            <div class="grow"><label for="lead-entity">Lead entity</label><input id="lead-entity" type="text" placeholder="Lead"/></div>
+            <div class="grow"><label for="minutes">Duration (minutes)</label><input id="minutes" type="number" min="15" value="45"/></div>
+        </div>
+        <div class="row">
+            <div class="grow"><label for="title">Title</label><input id="title" type="text" placeholder="Pricing walkthrough"/></div>
+            <div class="grow"><label for="when">Starts at</label><input id="when" type="datetime-local"/></div>
+        </div>
+        <label for="agenda">Agenda</label>
+        <textarea id="agenda" placeholder="What this meeting is for"></textarea>
+        <div class="row" style="margin-top:16px">
+            <button id="generate">Generate meeting link</button>
+            <span id="generate-meta" class="badge">—</span>
+        </div>
+        <div id="generate-msg" class="msg"></div>
+        <div id="link-box"></div>
+    </div>
+
+    <div class="card">
+        <h2>Meetings and discussions for a lead</h2>
+        <div class="row">
+            <div class="grow"><label for="history-lead">Lead id</label><input id="history-lead" type="text" placeholder="8890"/></div>
+            <button id="load-history" class="secondary">Load</button>
+        </div>
+        <div id="history"></div>
+    </div>
+</main>
+<script th:src="@{/ai-sdk/assets/app.js}"></script>
+<script>
+    const googleMsg = document.getElementById('google-msg');
+    const generateMsg = document.getElementById('generate-msg');
+
+    function esc(value) {
+        return (value === null || value === undefined) ? '' : String(value)
+            .replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
+    }
+
+    function flag(value) {
+        return value ? 'yes' : 'no';
+    }
+
+    async function loadStatus() {
+        if (!AiSdk.requireToken()) return;
+        try {
+            const status = await AiSdk.request('/meetings/status');
+            document.getElementById('s-enabled').textContent = flag(status.enabled);
+            document.getElementById('s-email').textContent = status.googleEmail || 'not connected';
+            document.getElementById('s-links').textContent = flag(status.canGenerateLinks);
+            document.getElementById('s-bot').textContent = flag(status.botEnabled);
+            document.getElementById('s-recall').textContent = status.recallConnected
+                ? (status.recallStatus || 'connected') + (status.recallError ? ' — ' + status.recallError : '')
+                : 'not registered';
+            document.getElementById('s-lead').textContent = status.leadEntity;
+            document.getElementById('lead-entity').placeholder = status.leadEntity;
+
+            const googleBadge = document.getElementById('google-badge');
+            googleBadge.textContent = status.googleConnected ? 'Google connected' : 'Google not connected';
+            googleBadge.className = 'badge ' + (status.googleConnected ? 'on' : 'off');
+            const botBadge = document.getElementById('bot-badge');
+            botBadge.textContent = status.recallConnected ? 'notetaker ready' : 'notetaker off';
+            botBadge.className = 'badge ' + (status.recallConnected ? 'on' : 'off');
+
+            document.getElementById('generate').disabled = !status.canGenerateLinks;
+            if (!status.enabled) {
+                AiSdk.message(googleMsg, 'The meeting feature is off. Set ai-sdk.meeting.enabled=true in the host application.', 'warn');
+            } else if (!status.googleEnabled) {
+                AiSdk.message(googleMsg, 'Google Calendar is off. Set ai-sdk.meeting.google.enabled=true and configure the OAuth client.', 'warn');
+            } else if (!status.googleConnected) {
+                AiSdk.message(googleMsg, 'Connect a Google account to start generating meeting links.', 'warn');
+            } else {
+                AiSdk.hide(googleMsg);
+            }
+        } catch (e) {
+            AiSdk.message(googleMsg, e.message, 'err');
+        }
+    }
+
+    document.getElementById('connect').addEventListener('click', async () => {
+        AiSdk.hide(googleMsg);
+        try {
+            const result = await AiSdk.request('/meetings/google/connect');
+            window.location.href = result.url;
+        } catch (e) {
+            AiSdk.message(googleMsg, e.message, 'err');
+        }
+    });
+
+    document.getElementById('disconnect').addEventListener('click', async () => {
+        AiSdk.hide(googleMsg);
+        try {
+            await AiSdk.request('/meetings/google', { method: 'DELETE' });
+            AiSdk.message(googleMsg, 'Google account disconnected.', 'ok');
+            await loadStatus();
+        } catch (e) {
+            AiSdk.message(googleMsg, e.message, 'err');
+        }
+    });
+
+    document.getElementById('refresh').addEventListener('click', loadStatus);
+
+    document.getElementById('generate').addEventListener('click', async () => {
+        AiSdk.hide(generateMsg);
+        document.getElementById('link-box').innerHTML = '';
+        const leadId = document.getElementById('lead-id').value.trim();
+        if (!leadId) {
+            AiSdk.message(generateMsg, 'A lead id is required', 'err');
+            return;
+        }
+        const when = document.getElementById('when').value;
+        const button = document.getElementById('generate');
+        button.disabled = true;
+        document.getElementById('generate-meta').textContent = 'asking Google…';
+        try {
+            const meeting = await AiSdk.request('/meetings', {
+                method: 'POST',
+                body: JSON.stringify({
+                    leadId,
+                    leadEntity: document.getElementById('lead-entity').value.trim() || null,
+                    title: document.getElementById('title').value.trim() || null,
+                    agenda: document.getElementById('agenda').value.trim() || null,
+                    scheduledAt: when ? new Date(when).toISOString() : null,
+                    durationMinutes: Number(document.getElementById('minutes').value) || null
+                })
+            });
+            document.getElementById('generate-meta').textContent = meeting.recallBotStatus
+                ? 'bot ' + meeting.recallBotStatus.toLowerCase() : 'link ready';
+            document.getElementById('link-box').innerHTML =
+                `<table><tbody>
+                    <tr><td>Meeting link</td><td><a href="${esc(meeting.meetingLink)}" target="_blank" rel="noopener">${esc(meeting.meetingLink)}</a></td></tr>
+                    <tr><td>Meeting id</td><td class="muted">${esc(meeting.id)}</td></tr>
+                    <tr><td>Starts at</td><td class="muted">${esc(meeting.scheduledAt)}</td></tr>
+                 </tbody></table>`;
+            AiSdk.message(generateMsg, 'Link generated. The notetaker joins automatically and its transcript is stored against lead ' + esc(leadId) + '.', 'ok');
+        } catch (e) {
+            document.getElementById('generate-meta').textContent = '—';
+            AiSdk.message(generateMsg, e.message, 'err');
+        } finally {
+            button.disabled = false;
+        }
+    });
+
+    document.getElementById('load-history').addEventListener('click', async () => {
+        const leadId = document.getElementById('history-lead').value.trim();
+        const box = document.getElementById('history');
+        if (!leadId) {
+            box.innerHTML = '<p class="muted">Enter a lead id.</p>';
+            return;
+        }
+        try {
+            const meetings = await AiSdk.request('/meetings/list?leadId=' + encodeURIComponent(leadId));
+            const discussions = await AiSdk.request('/meetings/discussions?leadId=' + encodeURIComponent(leadId));
+            box.innerHTML =
+                `<h2>Meetings</h2>` + (meetings.length === 0 ? '<p class="muted">None yet.</p>' :
+                `<table><thead><tr><th>Starts</th><th>Title</th><th>Status</th><th>Bot</th><th>Link</th></tr></thead><tbody>
+                    ${meetings.map(m => `<tr><td class="muted">${esc(m.scheduledAt)}</td><td>${esc(m.title)}</td><td>${esc(m.status)}</td>
+                    <td class="muted">${esc(m.recallBotStatus || '—')}</td>
+                    <td><a href="${esc(m.meetingLink)}" target="_blank" rel="noopener">open</a></td></tr>`).join('')}
+                 </tbody></table>`) +
+                `<h2>Discussions (latest first)</h2>` + (discussions.length === 0 ? '<p class="muted">No transcripts captured yet.</p>' :
+                discussions.map(d => `<details><summary>${esc(d.occurredAt)} — ${esc(d.meetingTitle || 'meeting')}
+                    <span class="pill">${(d.participants || []).length} participants</span></summary>
+                    <div class="body"><pre>${esc(d.discussion)}</pre></div></details>`).join(''));
+        } catch (e) {
+            box.innerHTML = '';
+            AiSdk.message(generateMsg, e.message, 'err');
+        }
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('google') === 'connected') {
+            AiSdk.message(googleMsg, 'Google account connected.', 'ok');
+        } else if (params.get('google')) {
+            AiSdk.message(googleMsg, 'Google connection ' + params.get('google') + '. Try connecting again.', 'err');
+        }
+        loadStatus();
+    });
+</script>
+</body>
+</html>

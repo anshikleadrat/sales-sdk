@@ -15,6 +15,7 @@
     <div class="steps">
         <a th:href="@{/ai-sdk/auth}">Already set up? Get a token<span>Sign in with the admin password</span></a>
         <a th:href="@{/ai-sdk/configure}">Configure schema<span>Choose entities, fields and guardrails</span></a>
+        <a th:href="@{/ai-sdk/meetings}">Connect Google<span>Generate meeting links and capture discussions</span></a>
         <a th:href="@{/ai-sdk/console}">Query console<span>Ask a question about your records</span></a>
     </div>
 
@@ -31,6 +32,17 @@
             <a th:href="@{/ai-sdk/auth}"><button type="button" class="secondary">Go to token page</button></a>
         </div>
         <div id="msg" class="msg"></div>
+    </div>
+
+    <div class="card">
+        <h2>Google account for meeting links</h2>
+        <p class="sub">Connect one Google account here and the SDK generates every meeting link itself — nobody pastes one in. Needs a token, so complete the steps above first.</p>
+        <div class="row">
+            <button id="google-connect">Connect Google account</button>
+            <a th:href="@{/ai-sdk/meetings}"><button type="button" class="secondary">Open meetings page</button></a>
+            <span id="google-badge" class="badge">checking…</span>
+        </div>
+        <div id="google-msg" class="msg"></div>
     </div>
 
     <div class="card">
@@ -83,7 +95,46 @@
         }
     });
 
+    const googleMsg = document.getElementById('google-msg');
+    const googleBadge = document.getElementById('google-badge');
+
+    async function loadGoogle() {
+        if (!AiSdk.token()) {
+            googleBadge.textContent = 'token needed';
+            googleBadge.className = 'badge off';
+            AiSdk.message(googleMsg, 'Complete setup, then get a token on step 2 to connect Google.', 'warn');
+            document.getElementById('google-connect').disabled = true;
+            return;
+        }
+        try {
+            const status = await AiSdk.request('/meetings/status');
+            googleBadge.textContent = status.googleConnected ? 'connected as ' + status.googleEmail : 'not connected';
+            googleBadge.className = 'badge ' + (status.googleConnected ? 'on' : 'off');
+            document.getElementById('google-connect').disabled = !status.googleEnabled;
+            if (!status.googleEnabled) {
+                AiSdk.message(googleMsg, 'Google Calendar is off. Set ai-sdk.meeting.google.enabled=true and configure the OAuth client.', 'warn');
+            } else {
+                AiSdk.hide(googleMsg);
+            }
+        } catch (e) {
+            googleBadge.textContent = 'unknown';
+            googleBadge.className = 'badge off';
+            AiSdk.message(googleMsg, e.message, 'err');
+        }
+    }
+
+    document.getElementById('google-connect').addEventListener('click', async () => {
+        AiSdk.hide(googleMsg);
+        try {
+            const result = await AiSdk.request('/meetings/google/connect');
+            window.location.href = result.url;
+        } catch (e) {
+            AiSdk.message(googleMsg, e.message, 'err');
+        }
+    });
+
     loadStatus();
+    loadGoogle();
 </script>
 </body>
 </html>

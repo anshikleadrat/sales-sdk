@@ -3,6 +3,7 @@ package com.leadrat.aisdk.query;
 import com.leadrat.aisdk.audit.AuditLogService;
 import com.leadrat.aisdk.config.AiSdkProperties;
 import com.leadrat.aisdk.config.ReadOnlyViolationException;
+import com.leadrat.aisdk.meeting.MeetingDiscussionProvider;
 import com.leadrat.aisdk.security.JwtAuthFilter;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
@@ -33,10 +34,12 @@ public class QueryController {
     private final QueryCache cache;
     private final RateLimiter rateLimiter;
     private final AuditLogService auditLog;
+    private final MeetingDiscussionProvider discussionProvider;
 
     public QueryController(AiSdkProperties properties, SchemaCatalog catalog, QueryPlanner planner,
                            QueryPlanValidator validator, TraversalEngine traversalEngine, Summarizer summarizer,
-                           QueryCache cache, RateLimiter rateLimiter, AuditLogService auditLog) {
+                           QueryCache cache, RateLimiter rateLimiter, AuditLogService auditLog,
+                           MeetingDiscussionProvider discussionProvider) {
         this.properties = properties;
         this.catalog = catalog;
         this.planner = planner;
@@ -46,6 +49,7 @@ public class QueryController {
         this.cache = cache;
         this.rateLimiter = rateLimiter;
         this.auditLog = auditLog;
+        this.discussionProvider = discussionProvider;
     }
 
     @PostMapping("/query")
@@ -83,7 +87,9 @@ public class QueryController {
         QueryPlan plan = planner.plan(request.question(), catalog.describe(targetEntities), request.targets());
         EffectivePlan effectivePlan = validator.validate(plan, request, targetEntities);
 
-        String cacheKey = cache.key(request, effectivePlan, catalog.configVersion());
+        String cacheKey = cache.key(request, effectivePlan, catalog.configVersion(),
+                discussionProvider.fingerprint(request.targets().stream()
+                        .map(target -> String.valueOf(target.id())).distinct().toList()));
         QueryResponse cached = cache.get(cacheKey);
         if (cached != null) {
             long latency = System.currentTimeMillis() - started;
@@ -110,11 +116,18 @@ public class QueryController {
         Map<String, Object> data = new LinkedHashMap<>();
         LinkedHashSet<String> entitiesTouched = new LinkedHashSet<>();
         int totalRows = 0;
+        boolean hasDiscussions = false;
         for (TraversalResult result : results) {
             Map<String, Object> node = new LinkedHashMap<>();
             node.put("self", result.self());
             node.put("parents", result.parents());
             node.put("children", result.children());
+            List<Map<String, Object>> discussions = discussionProvider.forTarget(result.entity(), result.id());
+            if (!discussions.isEmpty()) {
+                node.put("meetingDiscussions", discussions);
+                totalRows += discussions.size();
+                hasDiscussions = true;
+            }
             data.put(result.entity() + ":" + result.id(), node);
             entitiesTouched.add(result.entity());
             result.parents().forEach(parent -> entitiesTouched.add(parent.entity()));
@@ -127,7 +140,8 @@ public class QueryController {
 
         String answer;
         try {
-            answer = summarizer.summarize(request.question(), data, catalog.instructionsFor(new ArrayList<>(entitiesTouched)));
+            answer = summarizer.summarize(request.question(), data,
+                    catalog.instructionsFor(new ArrayList<>(entitiesTouched)), hasDiscussions);
         } catch (RuntimeException e) {
             return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
                     .body(Map.of("error", "summarizer call failed: " + e.getMessage()));

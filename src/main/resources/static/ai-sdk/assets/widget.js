@@ -46,6 +46,13 @@
         details { margin-top: 12px; border: 1px solid #2a323c; border-radius: 8px; background: #1e242c; }
         summary { cursor: pointer; padding: 10px 12px; font-size: 13px; color: #9aa5b1; }
         pre { margin: 0; padding: 12px; overflow: auto; max-height: 260px; font-size: 12px; color: #c9d1d9; }
+        .meeting { margin-top: 12px; padding: 12px; border: 1px solid #2a323c; border-radius: 8px; background: #1e242c; }
+        .meeting a { color: #4f8cff; word-break: break-all; }
+        .meeting .copy { margin-top: 8px; background: transparent; border: 1px solid #2a323c; color: #9aa5b1; border-radius: 6px; padding: 5px 10px; font-size: 12px; cursor: pointer; }
+        .meeting .copy:hover { color: #e6eaef; border-color: #4f8cff; }
+        .secondary-button { background: transparent; border: 1px solid #2a323c; color: #9aa5b1; font-size: 14px; padding: 9px 14px; border-radius: 8px; cursor: pointer; }
+        .secondary-button:hover { color: #e6eaef; border-color: #4f8cff; }
+        .secondary-button:disabled { opacity: .55; cursor: not-allowed; }
         .auth { margin-top: 12px; }
         .auth input { width: 100%; background: #1e242c; color: #e6eaef; border: 1px solid #2a323c; border-radius: 8px; padding: 9px 12px; font-size: 14px; }
         .hidden { display: none; }
@@ -64,7 +71,11 @@
             title: data.aiSdkTitle || 'Ask about this record',
             question: data.aiSdkQuestion || '',
             launcherLabel: data.aiSdkLabel || 'Ask AI',
-            open: data.aiSdkOpen === 'true'
+            open: data.aiSdkOpen === 'true',
+            meetings: data.aiSdkMeetings === 'true',
+            meetingLabel: data.aiSdkMeetingLabel || 'Get meeting link',
+            meetingTitle: data.aiSdkMeetingTitle || null,
+            meetingMinutes: data.aiSdkMeetingMinutes ? Number(data.aiSdkMeetingMinutes) : null
         };
         if (data.aiSdkEntity && data.aiSdkId) {
             config.targets = [{ entity: data.aiSdkEntity, id: data.aiSdkId }];
@@ -172,6 +183,18 @@
         query(payload) {
             return this.request('/query', { method: 'POST', body: JSON.stringify(payload) });
         }
+
+        createMeeting(payload) {
+            return this.request('/meetings', { method: 'POST', body: JSON.stringify(payload) });
+        }
+
+        meetingStatus() {
+            return this.request('/meetings/status', { method: 'GET' });
+        }
+
+        meetingDiscussions(leadId) {
+            return this.request('/meetings/discussions?leadId=' + encodeURIComponent(leadId), { method: 'GET' });
+        }
     }
 
     class AiSdkWidgetInstance {
@@ -185,7 +208,11 @@
                 suggestions: [],
                 targets: null,
                 options: null,
-                open: false
+                open: false,
+                meetings: false,
+                meetingLabel: 'Get meeting link',
+                meetingTitle: null,
+                meetingMinutes: null
             }, config || {});
             this.client = new AiSdkClient(this.config);
             this.mount();
@@ -224,8 +251,10 @@
                         <div class="suggestions"></div>
                         <div class="actions">
                             <button class="primary ask">Ask</button>
+                            <button class="secondary-button meeting-link ${this.config.meetings ? '' : 'hidden'}">${escapeHtml(this.config.meetingLabel)}</button>
                             <span class="meta"></span>
                         </div>
+                        <div class="meeting hidden"></div>
                         <div class="auth hidden">
                             <input class="password" type="password" placeholder="Admin password"/>
                             <div class="actions"><button class="primary sign-in">Sign in</button></div>
@@ -249,10 +278,13 @@
             this.answerEl = wrapper.querySelector('.answer');
             this.recordsEl = wrapper.querySelector('.records');
             this.authEl = wrapper.querySelector('.auth');
+            this.meetingEl = wrapper.querySelector('.meeting');
+            this.meetingButton = wrapper.querySelector('.meeting-link');
 
             wrapper.querySelector('.launcher').addEventListener('click', () => this.toggle());
             wrapper.querySelector('.close').addEventListener('click', () => this.close());
             this.askButton.addEventListener('click', () => this.run());
+            this.meetingButton.addEventListener('click', () => this.generateMeetingLink());
             wrapper.querySelector('.sign-in').addEventListener('click', () => this.signIn());
             this.questionEl.addEventListener('keydown', event => {
                 if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) this.run();
@@ -339,6 +371,48 @@
             }
         }
 
+        async createMeeting(payload) {
+            const target = (payload && payload.target)
+                || (payload && payload.leadId ? { entity: payload.leadEntity, id: payload.leadId } : null)
+                || this.targets()[0];
+            if (!target || !target.id) throw new Error('No lead to create a meeting for');
+            return this.client.createMeeting({
+                leadId: String(target.id),
+                leadEntity: target.entity || null,
+                title: (payload && payload.title) || this.config.meetingTitle || null,
+                agenda: (payload && payload.agenda) || null,
+                scheduledAt: (payload && payload.scheduledAt) || null,
+                durationMinutes: (payload && payload.durationMinutes) || this.config.meetingMinutes || null
+            });
+        }
+
+        async generateMeetingLink(payload) {
+            this.clearError();
+            this.meetingButton.disabled = true;
+            this.metaEl.textContent = 'creating meeting…';
+            try {
+                const meeting = await this.createMeeting(payload);
+                this.meetingEl.innerHTML = `<a href="${escapeHtml(meeting.meetingLink)}" target="_blank" rel="noopener">${escapeHtml(meeting.meetingLink)}</a>
+                    <button class="copy">Copy link</button>`;
+                this.meetingEl.classList.remove('hidden');
+                this.meetingEl.querySelector('.copy').addEventListener('click', () => {
+                    navigator.clipboard.writeText(meeting.meetingLink).then(() => {
+                        this.meetingEl.querySelector('.copy').textContent = 'Copied';
+                    }).catch(() => { });
+                });
+                this.metaEl.textContent = 'meeting link ready';
+                if (typeof this.config.onMeeting === 'function') this.config.onMeeting(meeting);
+                return meeting;
+            } catch (e) {
+                this.metaEl.textContent = '';
+                this.showError(e.message);
+                if (typeof this.config.onError === 'function') this.config.onError(e);
+                throw e;
+            } finally {
+                this.meetingButton.disabled = false;
+            }
+        }
+
         setTargets(targets) {
             this.config.targets = targets;
             this.renderTargets();
@@ -381,6 +455,10 @@
         ask(payload) {
             if (!api.instance) throw new Error('AiSdkWidget.init must be called first');
             return api.instance.ask(payload);
+        },
+        meetingLink(payload) {
+            if (!api.instance) throw new Error('AiSdkWidget.init must be called first');
+            return api.instance.generateMeetingLink(payload);
         },
         open() { if (api.instance) api.instance.open(); },
         close() { if (api.instance) api.instance.close(); },

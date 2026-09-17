@@ -21,8 +21,11 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             "/ai-sdk/auth",
             "/ai-sdk/configure",
             "/ai-sdk/console",
+            "/ai-sdk/meetings",
             "/ai-sdk/embed",
-            "/ai-sdk/status");
+            "/ai-sdk/status",
+            "/ai-sdk/webhooks/recall-ai",
+            "/ai-sdk/meetings/google/callback");
 
     private final JwtService jwtService;
 
@@ -72,7 +75,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         }
         for (String publicPath : PUBLIC_PATHS) {
             if (path.equals(publicPath)) {
-                return "/ai-sdk/setup".equals(publicPath) || "/ai-sdk/auth/token".equals(publicPath) || "GET".equalsIgnoreCase(method);
+                return "/ai-sdk/setup".equals(publicPath) || "/ai-sdk/auth/token".equals(publicPath)
+                        || "/ai-sdk/webhooks/recall-ai".equals(publicPath) || "GET".equalsIgnoreCase(method);
             }
         }
         return false;

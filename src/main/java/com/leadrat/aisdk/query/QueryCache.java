@@ -20,6 +20,10 @@ public class QueryCache {
     }
 
     public String key(QueryRequest request, EffectivePlan plan, long configVersion) {
+        return key(request, plan, configVersion, "");
+    }
+
+    public String key(QueryRequest request, EffectivePlan plan, long configVersion, String discussionFingerprint) {
         String targets = request.targets().stream()
                 .map(t -> t.entity() + ":" + t.id())
                 .sorted()
@@ -31,7 +35,8 @@ public class QueryCache {
                 String.valueOf(plan.parentDepth()),
                 String.valueOf(plan.childDepth()),
                 String.valueOf(plan.maxChildrenPerRelation()),
-                String.join(",", sorted(plan.allowedRelations())));
+                String.join(",", sorted(plan.allowedRelations())),
+                discussionFingerprint == null ? "" : discussionFingerprint);
         return hash(raw);
     }
 

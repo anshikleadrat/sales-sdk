@@ -11,6 +11,23 @@ import com.leadrat.aisdk.configure.ConfigureUiController;
 import com.leadrat.aisdk.introspection.SchemaIntrospector;
 import com.leadrat.aisdk.license.LicenseValidator;
 import com.leadrat.aisdk.llm.OpenRouterClient;
+import com.leadrat.aisdk.meeting.GoogleCalendarClient;
+import com.leadrat.aisdk.meeting.GoogleCredentialStore;
+import com.leadrat.aisdk.meeting.GoogleOAuthController;
+import com.leadrat.aisdk.meeting.GoogleTokenStore;
+import com.leadrat.aisdk.meeting.MeetingController;
+import com.leadrat.aisdk.meeting.MeetingDiscussionProvider;
+import com.leadrat.aisdk.meeting.MeetingReconciler;
+import com.leadrat.aisdk.meeting.MeetingService;
+import com.leadrat.aisdk.meeting.MeetingStore;
+import com.leadrat.aisdk.meeting.RecallApiClient;
+import com.leadrat.aisdk.meeting.RecallBotConfigFactory;
+import com.leadrat.aisdk.meeting.RecallCalendarClient;
+import com.leadrat.aisdk.meeting.RecallCalendarService;
+import com.leadrat.aisdk.meeting.RecallHttp;
+import com.leadrat.aisdk.meeting.RecallPayloadMapper;
+import com.leadrat.aisdk.meeting.RecallService;
+import com.leadrat.aisdk.meeting.RecallWebhookController;
 import com.leadrat.aisdk.query.QueryCache;
 import com.leadrat.aisdk.query.QueryController;
 import com.leadrat.aisdk.query.QueryPlanValidator;
@@ -181,9 +198,108 @@ public class AiSdkAutoConfiguration {
     public QueryController aiSdkQueryController(AiSdkProperties properties, SchemaCatalog catalog, QueryPlanner planner,
                                                 QueryPlanValidator validator, TraversalEngine traversalEngine,
                                                 Summarizer summarizer, QueryCache cache, RateLimiter rateLimiter,
-                                                AuditLogService auditLog) {
+                                                AuditLogService auditLog, MeetingDiscussionProvider discussionProvider) {
         return new QueryController(properties, catalog, planner, validator, traversalEngine, summarizer, cache,
-                rateLimiter, auditLog);
+                rateLimiter, auditLog, discussionProvider);
+    }
+
+    @Bean
+    public MeetingStore aiSdkMeetingStore(SqliteStore store, ObjectMapper objectMapper) {
+        return new MeetingStore(store.jdbc(), objectMapper);
+    }
+
+    @Bean
+    public GoogleCredentialStore aiSdkGoogleCredentialStore(SqliteStore store) {
+        return new GoogleCredentialStore(store.jdbc());
+    }
+
+    @Bean
+    public GoogleTokenStore aiSdkGoogleTokenStore(AiSdkProperties properties, GoogleCredentialStore credentialStore) {
+        return new GoogleTokenStore(properties, credentialStore);
+    }
+
+    @Bean
+    public GoogleCalendarClient aiSdkGoogleCalendarClient(AiSdkProperties properties, GoogleTokenStore tokenStore) {
+        return new GoogleCalendarClient(properties, tokenStore);
+    }
+
+    @Bean
+    public RecallHttp aiSdkRecallHttp(AiSdkProperties properties, ObjectMapper objectMapper) {
+        return new RecallHttp(properties, objectMapper);
+    }
+
+    @Bean
+    public RecallApiClient aiSdkRecallApiClient(RecallHttp http, AiSdkProperties properties) {
+        return new RecallApiClient(http, properties);
+    }
+
+    @Bean
+    public RecallCalendarClient aiSdkRecallCalendarClient(RecallHttp http) {
+        return new RecallCalendarClient(http);
+    }
+
+    @Bean
+    public RecallBotConfigFactory aiSdkRecallBotConfigFactory(AiSdkProperties properties) {
+        return new RecallBotConfigFactory(properties);
+    }
+
+    @Bean
+    public RecallPayloadMapper aiSdkRecallPayloadMapper() {
+        return new RecallPayloadMapper();
+    }
+
+    @Bean
+    public RecallCalendarService aiSdkRecallCalendarService(RecallHttp http, RecallCalendarClient calendarClient,
+                                                           RecallApiClient apiClient, RecallBotConfigFactory botConfigFactory,
+                                                           AiSdkProperties properties, GoogleCredentialStore credentialStore,
+                                                           GoogleTokenStore tokenStore, MeetingStore meetingStore) {
+        return new RecallCalendarService(http, calendarClient, apiClient, botConfigFactory, properties,
+                credentialStore, tokenStore, meetingStore);
+    }
+
+    @Bean
+    public RecallService aiSdkRecallService(MeetingStore meetingStore, RecallApiClient apiClient,
+                                            RecallCalendarService calendarService, RecallPayloadMapper mapper,
+                                            AiSdkProperties properties) {
+        return new RecallService(meetingStore, apiClient, calendarService, mapper, properties);
+    }
+
+    @Bean
+    public MeetingService aiSdkMeetingService(AiSdkProperties properties, MeetingStore meetingStore,
+                                              GoogleCalendarClient calendarClient, RecallService recallService) {
+        return new MeetingService(properties, meetingStore, calendarClient, recallService);
+    }
+
+    @Bean
+    public MeetingDiscussionProvider aiSdkMeetingDiscussionProvider(AiSdkProperties properties, MeetingStore meetingStore) {
+        return new MeetingDiscussionProvider(properties, meetingStore);
+    }
+
+    @Bean
+    public MeetingController aiSdkMeetingController(AiSdkProperties properties, MeetingService meetingService,
+                                                    GoogleCalendarClient calendarClient, RecallHttp recallHttp,
+                                                    GoogleCredentialStore credentialStore) {
+        return new MeetingController(properties, meetingService, calendarClient, recallHttp, credentialStore);
+    }
+
+    @Bean
+    public GoogleOAuthController aiSdkGoogleOAuthController(AiSdkProperties properties, GoogleTokenStore tokenStore,
+                                                            GoogleCredentialStore credentialStore,
+                                                            RecallCalendarService recallCalendarService) {
+        return new GoogleOAuthController(properties, tokenStore, credentialStore, recallCalendarService);
+    }
+
+    @Bean
+    public RecallWebhookController aiSdkRecallWebhookController(AiSdkProperties properties, RecallService recallService,
+                                                                ObjectMapper objectMapper) {
+        return new RecallWebhookController(properties, recallService, objectMapper);
+    }
+
+    @Bean(destroyMethod = "close")
+    public MeetingReconciler aiSdkMeetingReconciler(AiSdkProperties properties, RecallHttp http,
+                                                    RecallCalendarService calendarService,
+                                                    GoogleCredentialStore credentialStore, MeetingStore meetingStore) {
+        return new MeetingReconciler(properties, http, calendarService, credentialStore, meetingStore);
     }
 
     @Bean
@@ -209,7 +325,8 @@ public class AiSdkAutoConfiguration {
 
     @Bean
     public ApplicationRunner aiSdkStartupRunner(SchemaIntrospector introspector, LicenseValidator licenseValidator,
-                                                SdkCredentials credentials, PasswordStore passwordStore) {
+                                                SdkCredentials credentials, PasswordStore passwordStore,
+                                                MeetingReconciler meetingReconciler) {
         return args -> {
             try {
                 introspector.scan();
@@ -217,6 +334,7 @@ public class AiSdkAutoConfiguration {
                 log.warn("ai-sdk: startup introspection failed ({})", e.toString());
             }
             announceSetup(credentials, passwordStore);
+            meetingReconciler.start();
             licenseValidator.start();
         };
     }

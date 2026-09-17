@@ -14,7 +14,14 @@ public class AiSdkEnvironmentPostProcessor implements EnvironmentPostProcessor {
 
     private static final Map<String, String> FALLBACKS = Map.of(
             "ai-sdk.llm.api-key", "OPENROUTER_API_KEY",
-            "ai-sdk.llm.base-url", "OPENROUTER_BASE_URL");
+            "ai-sdk.llm.base-url", "OPENROUTER_BASE_URL",
+            "ai-sdk.meeting.google.client-id", "GOOGLE_CLIENT_ID",
+            "ai-sdk.meeting.google.client-secret", "GOOGLE_CLIENT_SECRET",
+            "ai-sdk.meeting.google.redirect-uri", "GOOGLE_REDIRECT_URI",
+            "ai-sdk.meeting.google.token-encryption-key", "GOOGLE_TOKEN_ENCRYPTION_KEY",
+            "ai-sdk.meeting.recall.api-key", "RECALL_API_KEY",
+            "ai-sdk.meeting.recall.webhook-secret", "RECALL_WEBHOOK_SECRET",
+            "ai-sdk.meeting.recall.base-url", "RECALL_BASE_URL");
 
     @Override
     public void postProcessEnvironment(ConfigurableEnvironment environment, SpringApplication application) {

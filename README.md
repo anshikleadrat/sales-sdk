@@ -90,6 +90,14 @@ variables work through Spring's relaxed binding without any YAML at all:
 | `AI_SDK_LLM_SUMMARIZER_MODEL` | `anthropic/claude-sonnet-4.5` |
 | `AI_SDK_QUERY_RATE_LIMIT_PER_MINUTE` | `30` |
 | `AI_SDK_QUERY_DB_TIMEOUT_SECONDS` | `5` |
+| `AI_SDK_MEETING_ENABLED` | `false` |
+| `AI_SDK_MEETING_LEAD_ENTITY` | `Lead` |
+| `AI_SDK_MEETING_GOOGLE_CLIENT_ID` | `GOOGLE_CLIENT_ID` |
+| `AI_SDK_MEETING_GOOGLE_CLIENT_SECRET` | `GOOGLE_CLIENT_SECRET` |
+| `AI_SDK_MEETING_GOOGLE_REDIRECT_URI` | `GOOGLE_REDIRECT_URI` |
+| `AI_SDK_MEETING_GOOGLE_TOKEN_ENCRYPTION_KEY` | `GOOGLE_TOKEN_ENCRYPTION_KEY` |
+| `AI_SDK_MEETING_RECALL_API_KEY` | `RECALL_API_KEY` |
+| `AI_SDK_MEETING_RECALL_WEBHOOK_SECRET` | `RECALL_WEBHOOK_SECRET` |
 
 The equivalent YAML, for a deployment that prefers to pin everything explicitly:
 
@@ -129,6 +137,33 @@ ai-sdk:
     key: ${AI_SDK_LICENSE_KEY:}
     server-url: ${AI_SDK_LICENSE_URL:}
     check-interval-hours: 24
+
+  meeting:
+    enabled: true
+    lead-entity: Lead
+    max-discussions-per-lead: 5
+    discussion-char-limit: 6000
+    google:
+      enabled: true
+      client-id: ${GOOGLE_CLIENT_ID}
+      client-secret: ${GOOGLE_CLIENT_SECRET}
+      redirect-uri: https://app.example.com/ai-sdk/meetings/google/callback
+      token-encryption-key: ${GOOGLE_TOKEN_ENCRYPTION_KEY}
+      post-connect-redirect: https://app.example.com/ai-sdk/configure
+    recall:
+      enabled: true
+      base-url: https://us-east-1.recall.ai
+      api-key: ${RECALL_API_KEY}
+      webhook-secret: ${RECALL_WEBHOOK_SECRET}
+      bot-name: AI SDK Notetaker
+      store-transcript: true
+      language: auto
+      auto-transcribe: true
+      transcript-mode: prioritize_accuracy
+      join-early-minutes: 2
+      join-grace-minutes: 30
+      direct-bot-window-minutes: 15
+      reconcile-seconds: 600
 ```
 
 `jwt-secret` must be at least 256 bits.
@@ -184,13 +219,26 @@ The UI pages link to each other in setup order:
 | POST | `/ai-sdk/setup` | OTP (one-time) | Set admin password |
 | POST | `/ai-sdk/auth/token` | Password | Issue JWT |
 | GET | `/ai-sdk/status` | None | Setup status and read-only enforcement mode |
-| GET | `/ai-sdk/setup`, `/ai-sdk/auth`, `/ai-sdk/configure`, `/ai-sdk/console`, `/ai-sdk/embed` | None (shell) | UI pages |
+| GET | `/ai-sdk/setup`, `/ai-sdk/auth`, `/ai-sdk/configure`, `/ai-sdk/meetings`, `/ai-sdk/console`, `/ai-sdk/embed` | None (shell) | UI pages |
 | GET | `/ai-sdk/configure/schema` | JWT | Introspected schema + current config |
 | POST | `/ai-sdk/configure/entities` | JWT | Save entity/field/relationship config |
 | POST | `/ai-sdk/configure/guardrails` | JWT | Save guardrails + prompt instructions |
 | POST | `/ai-sdk/configure/rescan` | JWT | Re-run introspection |
 | GET | `/ai-sdk/configure/audit` | JWT | Recent query audit entries |
 | POST | `/ai-sdk/query` | JWT | The single business query endpoint |
+| POST | `/ai-sdk/meetings` | JWT | Generate a meeting link for a lead — the button's endpoint |
+| GET | `/ai-sdk/meetings/list?leadId=` | JWT | Meetings for a lead, newest first |
+| GET | `/ai-sdk/meetings/{id}` | JWT | One meeting |
+| PATCH | `/ai-sdk/meetings/{id}` | JWT | Reschedule or edit |
+| POST | `/ai-sdk/meetings/{id}/cancel` | JWT | Cancel, drop the bot, delete the calendar event |
+| POST | `/ai-sdk/meetings/{id}/complete` | JWT | Mark completed |
+| GET | `/ai-sdk/meetings/{id}/discussions` | JWT | Discussions captured from that meeting |
+| GET | `/ai-sdk/meetings/discussions?leadId=` | JWT | A lead's discussions, latest first |
+| GET | `/ai-sdk/meetings/status` | JWT | Google/Recall connection state |
+| GET | `/ai-sdk/meetings/google/connect` | JWT | Google consent URL |
+| GET | `/ai-sdk/meetings/google/callback` | None (OAuth) | Consent callback |
+| DELETE | `/ai-sdk/meetings/google` | JWT | Disconnect Google and the Recall calendar |
+| POST | `/ai-sdk/webhooks/recall-ai` | Signature | Recall.ai calendar, bot and transcript events |
 
 ### Query request
 
@@ -210,6 +258,52 @@ global ceilings. Relations that are not marked traversable are dropped from the 
 if the model asks for them, and fields marked sensitive or not exposed are stripped in
 code before anything is serialized for the LLM.
 
+## Meetings and lead discussions
+
+With `ai-sdk.meeting.enabled`, a button in your app asks the SDK for a meeting link, the SDK
+generates it, a notetaker bot joins the call, and what was discussed is stored against the lead —
+so the next answer the SDK writes knows what was already said. Nobody pastes a link anywhere.
+
+**One Google account, connected on the SDK's own pages.** Step 4 of the setup flow
+(`/ai-sdk/meetings`, also reachable from the setup page) connects a single Google account for the
+whole deployment; its refresh token is AES-GCM encrypted in the SDK's SQLite file. That account
+backs every link the SDK generates, so reps never connect anything themselves. The redirect URI
+registered with the Google OAuth client must be `https://your-host/ai-sdk/meetings/google/callback`.
+
+**The button.** `POST /ai-sdk/meetings` with a lead id creates a Google Calendar event with a
+`hangoutsMeet` conference request and returns the Meet link in the same response — nothing is
+async, so the button either gets a link or gets an error explaining why. `scheduledAt` is optional
+and defaults to now, which is what an "start a meeting with this lead" button wants.
+
+```json
+POST /ai-sdk/meetings
+{ "leadId": "8890", "leadEntity": "Lead", "title": "Pricing walkthrough", "durationMinutes": 45 }
+
+201 { "id": "…", "leadId": "8890", "meetingLink": "https://meet.google.com/abc-defg-hij", "status": "SCHEDULED", … }
+```
+
+The bundled widget renders that button for you with `data-ai-sdk-meetings="true"`, or call
+`AiSdkWidget.meetingLink()` from your own UI. The lead is taken from the widget's first target,
+so the same `data-ai-sdk-entity`/`data-ai-sdk-id` that powers the Ask button powers this one.
+
+**Capture.** The connected Google account is registered with Recall.ai as a calendar. When the
+event syncs, a bot is scheduled against it; inside the direct-bot window — or when the event has
+not synced yet, which is the normal case for a meeting starting now — the bot is sent straight at
+the meeting URL. Bot status, recording and transcript events arrive on `/ai-sdk/webhooks/recall-ai`,
+verified with the Standard Webhooks HMAC signature. A background reconciler re-syncs the calendar
+and picks up any meeting whose bot never got scheduled.
+
+**Storage.** Transcripts are flattened to `speaker: text` lines and written to
+`meeting_discussion`, keyed by `lead_id` — one lead, many discussions, read back newest first.
+Each row keeps its meeting, participants, timestamps and the Recall bot id it came from, so a
+re-delivered webhook updates the row rather than duplicating it.
+
+**In the answer.** Every `/ai-sdk/query` target is looked up by id against `meeting_discussion`;
+matching discussions are attached to that record as `meetingDiscussions` (newest first, capped by
+`max-discussions-per-lead` and truncated at `discussion-char-limit`) and the summarizer is told to
+ground its answer in them — what was promised, what was objected to, what the next step is. The
+query cache keys on the discussion fingerprint, so a new transcript invalidates stale answers.
+
 ## Frontend clients
 
 Two ready-made frontends consume the business endpoint. Both send the JWT as a bearer token
@@ -227,8 +321,15 @@ launcher and panel inside a shadow DOM, so it cannot collide with the host page'
         data-ai-sdk-id="4521"
         data-ai-sdk-token-url="/my-app/ai-sdk-token"
         data-ai-sdk-position="bottom-right"
-        data-ai-sdk-label="Ask AI"></script>
+        data-ai-sdk-label="Ask AI"
+        data-ai-sdk-meetings="true"
+        data-ai-sdk-meeting-label="Get meeting link"
+        data-ai-sdk-meeting-minutes="45"></script>
 ```
+
+`data-ai-sdk-meetings="true"` adds the meeting-link button beside Ask. Pressing it calls
+`POST /ai-sdk/meetings` for the current target and shows the generated Meet link with a copy
+button; `onMeeting` receives the created meeting if you would rather render it yourself.
 
 Or drive it from code, which suits single-page apps where the current record changes:
 
@@ -238,7 +339,9 @@ const widget = AiSdkWidget.init({
   getToken: async () => (await fetch('/my-app/ai-sdk-token')).json().then(r => r.token),
   targets: [{ entity: 'Client', id: '4521' }],
   options: { parentDepth: 2, childDepth: 1 },
-  onAnswer: response => console.log(response.answer)
+  meetings: true,
+  onAnswer: response => console.log(response.answer),
+  onMeeting: meeting => console.log(meeting.meetingLink)
 });
 
 widget.setTargets([{ entity: 'Lead', id: '8890' }]);
@@ -252,6 +355,16 @@ const response = await client.query({
   question: 'Summarize this client and flag churn risk',
   targets: [{ entity: 'Client', id: '4521' }]
 });
+
+const meeting = await client.createMeeting({ leadId: '8890', leadEntity: 'Lead', durationMinutes: 45 });
+console.log(meeting.meetingLink);
+```
+
+Your own button, with no widget at all:
+
+```js
+const meeting = await AiSdkWidget.meetingLink();
+window.open(meeting.meetingLink, '_blank');
 ```
 
 With no targets configured, the widget picks up any element on the page carrying

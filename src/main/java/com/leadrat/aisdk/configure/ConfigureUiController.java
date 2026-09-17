@@ -28,6 +28,11 @@ public class ConfigureUiController {
         return "ai-sdk/configure";
     }
 
+    @GetMapping("/meetings")
+    public String meetings() {
+        return "ai-sdk/meetings";
+    }
+
     @GetMapping("/console")
     public String console() {
         return "ai-sdk/console";
