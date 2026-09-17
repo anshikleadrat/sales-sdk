@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>AI Query SDK — Configure</title>
+    <link rel="stylesheet" th:href="@{/ai-sdk/assets/styles.css}"/>
+</head>
+<body th:attr="data-base=@{/ai-sdk}">
+<div th:replace="~{ai-sdk/fragments :: topbar}"></div>
+<main>
+    <h1>Step 3 — Configure what the SDK can see</h1>
+    <p class="sub">Everything is denied until you enable it here. Sensitive fields are stripped in code before anything reaches the model.</p>
+
+    <div class="steps">
+        <a th:href="@{/ai-sdk/setup}">Setup<span>One-time admin password</span></a>
+        <a th:href="@{/ai-sdk/auth}">Token<span>Refresh an expired session</span></a>
+        <a th:href="@{/ai-sdk/console}">Query console<span>Try the configuration out</span></a>
+    </div>
+
+    <div class="card">
+        <div class="row">
+            <button id="save">Save all changes</button>
+            <button id="rescan" class="secondary">Re-run introspection</button>
+            <button id="reload" class="secondary">Reload</button>
+            <span id="version" class="badge">config version —</span>
+            <span id="ro-badge" class="badge">datasource —</span>
+            <span class="grow"></span>
+            <input id="filter" type="text" class="grow" placeholder="filter entities…"/>
+        </div>
+        <div id="msg" class="msg"></div>
+    </div>
+
+    <div id="entities"></div>
+
+    <div class="card">
+        <h2>Recent queries</h2>
+        <div class="row"><button id="load-audit" class="secondary">Load audit log</button></div>
+        <div id="audit"></div>
+    </div>
+</main>
+<script th:src="@{/ai-sdk/assets/app.js}"></script>
+<script>
+    const msg = document.getElementById('msg');
+    const container = document.getElementById('entities');
+    let schema = null;
+
+    function esc(value) {
+        return (value === null || value === undefined) ? '' : String(value)
+            .replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
+    }
+
+    function fieldsOf(entityName) {
+        return schema.fields.filter(f => f.entityName === entityName && f.present);
+    }
+
+    function relationsOf(entityName) {
+        return schema.relationships.filter(r => r.entityName === entityName && r.present);
+    }
+
+    function guardrailOf(entityName) {
+        return schema.guardrails[entityName] || { maxRows: 50, maxChildDepth: 1, maxParentDepth: 2, customPromptInstructions: '' };
+    }
+
+    function render() {
+        const filter = document.getElementById('filter').value.toLowerCase();
+        container.innerHTML = '';
+        schema.entities.filter(e => e.present && e.entityName.toLowerCase().includes(filter)).forEach(entity => {
+            const guardrail = guardrailOf(entity.entityName);
+            const fields = fieldsOf(entity.entityName);
+            const relations = relationsOf(entity.entityName);
+            const block = document.createElement('details');
+            block.dataset.entity = entity.entityName;
+            block.open = entity.enabled;
+            block.innerHTML = `
+                <summary>${esc(entity.entityName)}
+                    <span class="pill">${esc(entity.tableName)}</span>
+                    <span class="pill">${fields.length} fields</span>
+                    <span class="pill">${relations.length} relations</span>
+                    ${entity.enabled ? '<span class="pill parent">enabled</span>' : '<span class="pill">disabled</span>'}
+                </summary>
+                <div class="body">
+                    <label class="checkline"><input type="checkbox" class="entity-enabled" ${entity.enabled ? 'checked' : ''}/> Queryable by the SDK</label>
+                    <label>Entity description for the model</label>
+                    <input type="text" class="entity-description" value="${esc(entity.description)}"/>
+
+                    <h2>Fields</h2>
+                    <table>
+                        <thead><tr><th>Field</th><th>Type</th><th>Exposed</th><th>Sensitive</th><th>Description</th></tr></thead>
+                        <tbody>
+                        ${fields.map(f => `
+                            <tr data-field="${esc(f.fieldName)}">
+                                <td>${esc(f.fieldName)}</td>
+                                <td class="muted">${esc(f.javaType)}</td>
+                                <td><input type="checkbox" class="field-exposed" ${f.exposedToLlm ? 'checked' : ''}/></td>
+                                <td><input type="checkbox" class="field-sensitive" ${f.sensitive ? 'checked' : ''}/>${f.sensitive ? '<span class="pill sensitive">heuristic</span>' : ''}</td>
+                                <td><input type="text" class="field-description" value="${esc(f.description)}"/></td>
+                            </tr>`).join('')}
+                        </tbody>
+                    </table>
+
+                    <h2>Relationships</h2>
+                    <table>
+                        <thead><tr><th>Field</th><th>Related entity</th><th>Type</th><th>Direction</th><th>Traversable</th></tr></thead>
+                        <tbody>
+                        ${relations.map(r => `
+                            <tr data-relation="${esc(r.fieldName)}">
+                                <td>${esc(r.fieldName)}</td>
+                                <td>${esc(r.relatedEntity)}</td>
+                                <td class="muted">${esc(r.relationshipType)}</td>
+                                <td><span class="pill ${r.direction === 'PARENT' ? 'parent' : 'child'}">${esc(r.direction)}</span></td>
+                                <td><input type="checkbox" class="relation-traverse" ${r.traverseEnabled ? 'checked' : ''}/></td>
+                            </tr>`).join('')}
+                        </tbody>
+                    </table>
+
+                    <h2>Guardrails</h2>
+                    <div class="row">
+                        <div class="grow"><label>Max rows per relation</label><input type="number" min="1" class="g-rows" value="${guardrail.maxRows}"/></div>
+                        <div class="grow"><label>Max child depth</label><input type="number" min="0" class="g-child" value="${guardrail.maxChildDepth}"/></div>
+                        <div class="grow"><label>Max parent depth</label><input type="number" min="0" class="g-parent" value="${guardrail.maxParentDepth}"/></div>
+                    </div>
+                    <label>Custom prompt instructions</label>
+                    <textarea class="g-prompt">${esc(guardrail.customPromptInstructions)}</textarea>
+                </div>`;
+            container.appendChild(block);
+        });
+    }
+
+    function collect() {
+        const entities = [], fields = [], relationships = [], guardrails = [];
+        container.querySelectorAll('details').forEach(block => {
+            const entityName = block.dataset.entity;
+            const source = schema.entities.find(e => e.entityName === entityName);
+            entities.push({
+                entityName,
+                tableName: source.tableName,
+                enabled: block.querySelector('.entity-enabled').checked,
+                description: block.querySelector('.entity-description').value,
+                present: true
+            });
+            block.querySelectorAll('tr[data-field]').forEach(row => {
+                const fieldName = row.dataset.field;
+                const original = schema.fields.find(f => f.entityName === entityName && f.fieldName === fieldName);
+                fields.push({
+                    entityName, fieldName,
+                    javaType: original.javaType,
+                    exposedToLlm: row.querySelector('.field-exposed').checked,
+                    sensitive: row.querySelector('.field-sensitive').checked,
+                    description: row.querySelector('.field-description').value,
+                    present: true
+                });
+            });
+            block.querySelectorAll('tr[data-relation]').forEach(row => {
+                const fieldName = row.dataset.relation;
+                const original = schema.relationships.find(r => r.entityName === entityName && r.fieldName === fieldName);
+                relationships.push({
+                    entityName, fieldName,
+                    relatedEntity: original.relatedEntity,
+                    relationshipType: original.relationshipType,
+                    direction: original.direction,
+                    traverseEnabled: row.querySelector('.relation-traverse').checked,
+                    mappedBy: original.mappedBy,
+                    present: true
+                });
+            });
+            guardrails.push({
+                entityName,
+                maxRows: Number(block.querySelector('.g-rows').value),
+                maxChildDepth: Number(block.querySelector('.g-child').value),
+                maxParentDepth: Number(block.querySelector('.g-parent').value),
+                customPromptInstructions: block.querySelector('.g-prompt').value
+            });
+        });
+        return { entities, fields, relationships, guardrails };
+    }
+
+    async function load() {
+        if (!AiSdk.requireToken()) return;
+        AiSdk.hide(msg);
+        try {
+            schema = await AiSdk.request('/configure/schema');
+            document.getElementById('version').textContent = 'config version ' + schema.configVersion;
+            const roBadge = document.getElementById('ro-badge');
+            roBadge.textContent = schema.dedicatedReadOnlyDatasource ? 'dedicated read-only datasource' : 'primary datasource fallback';
+            roBadge.className = 'badge ' + (schema.dedicatedReadOnlyDatasource ? 'on' : 'off');
+            render();
+        } catch (e) {
+            AiSdk.message(msg, e.message, 'err');
+        }
+    }
+
+    document.getElementById('save').addEventListener('click', async () => {
+        AiSdk.hide(msg);
+        const payload = collect();
+        try {
+            await AiSdk.request('/configure/entities', {
+                method: 'POST',
+                body: JSON.stringify({ entities: payload.entities, fields: payload.fields, relationships: payload.relationships })
+            });
+            const result = await AiSdk.request('/configure/guardrails', {
+                method: 'POST',
+                body: JSON.stringify({ guardrails: payload.guardrails })
+            });
+            AiSdk.message(msg, 'Saved. Cached answers built on older configuration are now invalid (config version ' + result.configVersion + ').', 'ok');
+            await load();
+        } catch (e) {
+            AiSdk.message(msg, e.message, 'err');
+        }
+    });
+
+    document.getElementById('rescan').addEventListener('click', async () => {
+        AiSdk.hide(msg);
+        try {
+            const result = await AiSdk.request('/configure/rescan', { method: 'POST' });
+            AiSdk.message(msg, 'Rescanned ' + result.entities + ' entities. Newly discovered items start disabled.', 'ok');
+            await load();
+        } catch (e) {
+            AiSdk.message(msg, e.message, 'err');
+        }
+    });
+
+    document.getElementById('reload').addEventListener('click', load);
+    document.getElementById('filter').addEventListener('input', () => { if (schema) render(); });
+
+    document.getElementById('load-audit').addEventListener('click', async () => {
+        try {
+            const rows = await AiSdk.request('/configure/audit?limit=50');
+            document.getElementById('audit').innerHTML = rows.length === 0
+                ? '<p class="muted">No queries recorded yet.</p>'
+                : `<table><thead><tr><th>At</th><th>Question</th><th>Targets</th><th>Entities</th><th>Rows</th><th>Cached</th><th>Latency</th></tr></thead><tbody>
+                    ${rows.map(r => `<tr><td class="muted">${esc(r.requested_at)}</td><td>${esc(r.question)}</td><td>${esc(r.target_summary)}</td>
+                    <td>${esc(r.entities_touched)}</td><td>${esc(r.total_rows)}</td><td>${r.cached ? 'yes' : 'no'}</td><td>${esc(r.latency_ms)} ms</td></tr>`).join('')}
+                   </tbody></table>`;
+        } catch (e) {
+            AiSdk.message(msg, e.message, 'err');
+        }
+    });
+
+    document.addEventListener('DOMContentLoaded', load);
+</script>
+</body>
+</html>

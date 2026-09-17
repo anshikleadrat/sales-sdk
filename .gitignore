@@ -1,0 +1,8 @@
+target/
+ai-sdk-data/
+*.db
+*.db-wal
+*.db-shm
+.idea/
+*.iml
+.agent-runtime/

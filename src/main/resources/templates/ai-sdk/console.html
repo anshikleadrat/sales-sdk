@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>AI Query SDK — Query console</title>
+    <link rel="stylesheet" th:href="@{/ai-sdk/assets/styles.css}"/>
+</head>
+<body th:attr="data-base=@{/ai-sdk}">
+<div th:replace="~{ai-sdk/fragments :: topbar}"></div>
+<main>
+    <h1>Step 4 — Ask a question</h1>
+    <p class="sub">This calls the single business endpoint, POST /ai-sdk/query, with the targets below.</p>
+
+    <div class="steps">
+        <a th:href="@{/ai-sdk/setup}">Setup<span>One-time admin password</span></a>
+        <a th:href="@{/ai-sdk/auth}">Token<span>Refresh an expired session</span></a>
+        <a th:href="@{/ai-sdk/configure}">Configure<span>Enable entities, fields and relations</span></a>
+    </div>
+
+    <div class="card">
+        <label for="question">Question</label>
+        <textarea id="question" placeholder="Summarize these clients and flag anyone at churn risk"></textarea>
+
+        <h2>Targets</h2>
+        <div id="targets"></div>
+        <div class="row" style="margin-top:10px">
+            <button id="add-target" class="secondary">Add target</button>
+        </div>
+
+        <h2>Options</h2>
+        <div class="row">
+            <div class="grow"><label>Parent depth</label><input id="parent-depth" type="number" min="0" placeholder="server default"/></div>
+            <div class="grow"><label>Child depth</label><input id="child-depth" type="number" min="0" placeholder="server default"/></div>
+            <div class="grow"><label>Max children per relation</label><input id="max-children" type="number" min="1" placeholder="server default"/></div>
+        </div>
+
+        <div class="row" style="margin-top:16px">
+            <button id="ask">Run query</button>
+            <span id="meta" class="badge">not run yet</span>
+        </div>
+        <div id="msg" class="msg"></div>
+    </div>
+
+    <div class="card">
+        <h2>Answer</h2>
+        <div id="answer" class="answer muted">No answer yet.</div>
+    </div>
+
+    <div class="card">
+        <h2>Retrieved records</h2>
+        <pre id="data">{}</pre>
+    </div>
+</main>
+<script th:src="@{/ai-sdk/assets/app.js}"></script>
+<script>
+    const msg = document.getElementById('msg');
+    const targetsEl = document.getElementById('targets');
+    let enabledEntities = [];
+
+    function addTargetRow(entity = '', id = '') {
+        const row = document.createElement('div');
+        row.className = 'row target-row';
+        row.style.marginTop = '8px';
+        row.innerHTML = `
+            <select class="t-entity grow">
+                ${enabledEntities.map(e => `<option value="${e}" ${e === entity ? 'selected' : ''}>${e}</option>`).join('')}
+            </select>
+            <input class="t-id grow" type="text" placeholder="id" value="${id}"/>
+            <button class="secondary t-remove" type="button">Remove</button>`;
+        row.querySelector('.t-remove').addEventListener('click', () => row.remove());
+        targetsEl.appendChild(row);
+    }
+
+    async function load() {
+        if (!AiSdk.requireToken()) return;
+        try {
+            const schema = await AiSdk.request('/configure/schema');
+            enabledEntities = schema.entities.filter(e => e.enabled && e.present).map(e => e.entityName);
+            if (enabledEntities.length === 0) {
+                AiSdk.message(msg, 'No entities are enabled yet. Enable them on the Configure page first.', 'warn');
+                return;
+            }
+            addTargetRow();
+        } catch (e) {
+            AiSdk.message(msg, e.message, 'err');
+        }
+    }
+
+    function numberOrNull(id) {
+        const value = document.getElementById(id).value;
+        return value === '' ? null : Number(value);
+    }
+
+    document.getElementById('add-target').addEventListener('click', () => addTargetRow());
+
+    document.getElementById('ask').addEventListener('click', async () => {
+        AiSdk.hide(msg);
+        const targets = Array.from(document.querySelectorAll('.target-row'))
+            .map(row => ({ entity: row.querySelector('.t-entity').value, id: row.querySelector('.t-id').value.trim() }))
+            .filter(t => t.entity && t.id);
+        if (targets.length === 0) {
+            AiSdk.message(msg, 'Add at least one target with an id.', 'err');
+            return;
+        }
+        const button = document.getElementById('ask');
+        button.disabled = true;
+        document.getElementById('meta').textContent = 'running…';
+        try {
+            const body = await AiSdk.request('/query', {
+                method: 'POST',
+                body: JSON.stringify({
+                    question: document.getElementById('question').value,
+                    targets,
+                    options: {
+                        parentDepth: numberOrNull('parent-depth'),
+                        childDepth: numberOrNull('child-depth'),
+                        maxChildrenPerRelation: numberOrNull('max-children')
+                    }
+                })
+            });
+            const answer = document.getElementById('answer');
+            answer.textContent = body.answer;
+            answer.className = 'answer';
+            document.getElementById('data').textContent = JSON.stringify(body.data, null, 2);
+            document.getElementById('meta').textContent =
+                `${body.meta.cached ? 'cached' : 'fresh'} · parents ${body.meta.parentDepth} · children ${body.meta.childDepth} · ${body.meta.latencyMs} ms`;
+        } catch (e) {
+            AiSdk.message(msg, e.message, 'err');
+            document.getElementById('meta').textContent = 'failed';
+        } finally {
+            button.disabled = false;
+        }
+    });
+
+    document.addEventListener('DOMContentLoaded', load);
+</script>
+</body>
+</html>

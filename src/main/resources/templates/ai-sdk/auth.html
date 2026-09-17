@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>AI Query SDK — Token</title>
+    <link rel="stylesheet" th:href="@{/ai-sdk/assets/styles.css}"/>
+</head>
+<body th:attr="data-base=@{/ai-sdk}">
+<div th:replace="~{ai-sdk/fragments :: topbar}"></div>
+<main>
+    <h1>Step 2 — Get an access token</h1>
+    <p class="sub">The admin password is exchanged for a short-lived JWT. It is kept in this browser tab only and sent as a bearer token on every other call.</p>
+
+    <div class="steps">
+        <a th:href="@{/ai-sdk/setup}">Back to setup<span>One-time admin password</span></a>
+        <a th:href="@{/ai-sdk/configure}">Configure schema<span>Needs a valid token</span></a>
+        <a th:href="@{/ai-sdk/console}">Query console<span>Needs a valid token</span></a>
+    </div>
+
+    <div class="card">
+        <label for="password">Admin password</label>
+        <input id="password" type="password" autocomplete="current-password"/>
+        <div class="row" style="margin-top:16px">
+            <button id="submit">Get token</button>
+            <button id="copy" class="secondary" disabled>Copy token</button>
+        </div>
+        <div id="msg" class="msg"></div>
+        <label for="token" style="margin-top:18px">Current token</label>
+        <textarea id="token" readonly placeholder="no token in this tab yet"></textarea>
+    </div>
+</main>
+<script th:src="@{/ai-sdk/assets/app.js}"></script>
+<script>
+    const msg = document.getElementById('msg');
+    const tokenBox = document.getElementById('token');
+    const copyButton = document.getElementById('copy');
+
+    function showToken() {
+        const current = AiSdk.token();
+        tokenBox.value = current || '';
+        copyButton.disabled = !current;
+    }
+
+    document.getElementById('submit').addEventListener('click', async () => {
+        AiSdk.hide(msg);
+        try {
+            const body = await AiSdk.request('/auth/token', {
+                method: 'POST',
+                body: JSON.stringify({ password: document.getElementById('password').value })
+            });
+            AiSdk.setToken(body.token);
+            showToken();
+            AiSdk.message(msg, 'Token issued, valid for ' + body.expiresIn + ' seconds. Continue to Configure or the Query console.', 'ok');
+        } catch (e) {
+            AiSdk.message(msg, e.message, 'err');
+        }
+    });
+
+    copyButton.addEventListener('click', async () => {
+        try {
+            await navigator.clipboard.writeText(tokenBox.value);
+            AiSdk.message(msg, 'Token copied to clipboard.', 'ok');
+        } catch (e) {
+            AiSdk.message(msg, 'Clipboard unavailable, copy it manually.', 'warn');
+        }
+    });
+
+    document.addEventListener('DOMContentLoaded', showToken);
+</script>
+</body>
+</html>
