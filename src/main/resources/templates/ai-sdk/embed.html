@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>AI Query SDK — Embed</title>
+    <link rel="stylesheet" th:href="@{/ai-sdk/assets/styles.css}"/>
+</head>
+<body th:attr="data-base=@{/ai-sdk}">
+<div th:replace="~{ai-sdk/fragments :: topbar}"></div>
+<main>
+    <h1>Step 5 — Embed the widget in your own frontend</h1>
+    <p class="sub">The widget is a single script served by this deployment. It renders in a shadow DOM, so it cannot collide with your application's styles, and it calls the same <code>POST /ai-sdk/query</code> endpoint with a bearer token.</p>
+
+    <div class="steps">
+        <a th:href="@{/ai-sdk/configure}">Configure<span>Enable entities before embedding</span></a>
+        <a th:href="@{/ai-sdk/console}">Query console<span>Test a question first</span></a>
+        <a th:href="@{/ai-sdk/auth}">Token<span>Refresh an expired session</span></a>
+    </div>
+
+    <div class="card">
+        <h2>Snippet builder</h2>
+        <div class="row">
+            <div class="grow">
+                <label for="entity">Entity</label>
+                <select id="entity"></select>
+            </div>
+            <div class="grow">
+                <label for="record-id">Record id (or a template placeholder)</label>
+                <input id="record-id" type="text" value="{{recordId}}"/>
+            </div>
+            <div class="grow">
+                <label for="position">Position</label>
+                <select id="position">
+                    <option value="bottom-right">bottom-right</option>
+                    <option value="bottom-left">bottom-left</option>
+                    <option value="top-right">top-right</option>
+                    <option value="top-left">top-left</option>
+                </select>
+            </div>
+        </div>
+        <div class="row">
+            <div class="grow">
+                <label for="token-url">Token endpoint in your app (recommended)</label>
+                <input id="token-url" type="text" placeholder="/my-app/ai-sdk-token"/>
+            </div>
+            <div class="grow">
+                <label for="label">Launcher label</label>
+                <input id="label" type="text" value="Ask AI"/>
+            </div>
+        </div>
+        <label for="suggestions">Suggested questions (one per line)</label>
+        <textarea id="suggestions">Summarize this record and its recent activity
+What should I follow up on next?</textarea>
+        <div class="row" style="margin-top:16px">
+            <button id="preview">Preview on this page</button>
+            <button id="copy" class="secondary">Copy script tag</button>
+        </div>
+        <div id="msg" class="msg"></div>
+    </div>
+
+    <div class="card">
+        <h2>Script tag</h2>
+        <p class="sub">Drop this into any page of your application that renders the record. The widget auto-initializes from the data attributes.</p>
+        <pre id="snippet-tag"></pre>
+    </div>
+
+    <div class="card">
+        <h2>Programmatic use</h2>
+        <p class="sub">Load the script once, then drive it from your own code — useful for SPAs where the current record changes without a page load.</p>
+        <pre id="snippet-js"></pre>
+    </div>
+
+    <div class="card">
+        <h2>Headless client</h2>
+        <p class="sub">The same script exposes a client with no UI, if you want to render answers inside your own components.</p>
+        <pre id="snippet-headless"></pre>
+    </div>
+
+    <div class="card">
+        <h2>Token strategy</h2>
+        <table>
+            <tbody>
+            <tr>
+                <td><strong>Token endpoint</strong></td>
+                <td>Your application exposes a route that calls <code>POST /ai-sdk/auth/token</code> server-side with the admin password and returns <code>{ "token": "..." }</code> to signed-in users. The password never reaches the browser. This is the recommended option.</td>
+            </tr>
+            <tr>
+                <td><strong>Session token</strong></td>
+                <td>If the widget runs on a page opened after signing in here, it reuses the token from this tab's session storage. Convenient for internal tooling on the same origin.</td>
+            </tr>
+            <tr>
+                <td><strong>Password prompt</strong></td>
+                <td>Fallback built into the widget: on a 401 it shows a password field and calls <code>/ai-sdk/auth/token</code> directly. Only appropriate when every widget user is an SDK admin.</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="card">
+        <h2>Cross-origin use</h2>
+        <p class="sub">A frontend served from a different origin than this application — including the Chrome extension — needs its origin allow-listed:</p>
+        <pre>ai-sdk:
+  security:
+    allowed-origins:
+      - https://app.example.com
+      - chrome-extension://&lt;your-extension-id&gt;</pre>
+    </div>
+</main>
+<script th:src="@{/ai-sdk/assets/app.js}"></script>
+<script th:src="@{/ai-sdk/assets/widget.js}"></script>
+<script>
+    const msg = document.getElementById('msg');
+    const origin = window.location.origin;
+
+    function baseUrl() {
+        return origin + AiSdk.base;
+    }
+
+    function suggestions() {
+        return document.getElementById('suggestions').value.split('\n').map(s => s.trim()).filter(Boolean);
+    }
+
+    function values() {
+        return {
+            entity: document.getElementById('entity').value,
+            id: document.getElementById('record-id').value,
+            position: document.getElementById('position').value,
+            tokenUrl: document.getElementById('token-url').value.trim(),
+            label: document.getElementById('label').value
+        };
+    }
+
+    function renderSnippets() {
+        const v = values();
+        const tokenAttribute = v.tokenUrl ? `\n        data-ai-sdk-token-url="${v.tokenUrl}"` : '';
+        document.getElementById('snippet-tag').textContent =
+`<script src="${baseUrl()}/assets/widget.js"
+        data-ai-sdk-base="${baseUrl()}"
+        data-ai-sdk-entity="${v.entity}"
+        data-ai-sdk-id="${v.id}"${tokenAttribute}
+        data-ai-sdk-position="${v.position}"
+        data-ai-sdk-label="${v.label}"
+        data-ai-sdk-suggestions="${suggestions().join(' | ')}"><\/script>`;
+
+        document.getElementById('snippet-js').textContent =
+`<script src="${baseUrl()}/assets/widget.js"><\/script>
+<script>
+  const widget = AiSdkWidget.init({
+    baseUrl: '${baseUrl()}',${v.tokenUrl ? `\n    tokenUrl: '${v.tokenUrl}',` : ''}
+    position: '${v.position}',
+    launcherLabel: '${v.label}',
+    suggestions: ${JSON.stringify(suggestions())},
+    targets: [{ entity: '${v.entity}', id: '${v.id}' }],
+    options: { parentDepth: 2, childDepth: 1 },
+    onAnswer: response => console.log(response.answer)
+  });
+
+  widget.setTargets([{ entity: '${v.entity}', id: someOtherId }]);
+<\/script>`;
+
+        document.getElementById('snippet-headless').textContent =
+`const client = AiSdkWidget.client({
+  baseUrl: '${baseUrl()}'${v.tokenUrl ? `,\n  tokenUrl: '${v.tokenUrl}'` : ''}
+});
+
+const response = await client.query({
+  question: 'Summarize this record and flag anything unusual',
+  targets: [{ entity: '${v.entity}', id: '${v.id}' }],
+  options: { parentDepth: 2, childDepth: 1, maxChildrenPerRelation: 20 }
+});
+
+console.log(response.answer, response.data, response.meta);`;
+    }
+
+    async function load() {
+        if (!AiSdk.requireToken()) return;
+        try {
+            const schema = await AiSdk.request('/configure/schema');
+            const enabled = schema.entities.filter(e => e.enabled && e.present).map(e => e.entityName);
+            const select = document.getElementById('entity');
+            select.innerHTML = enabled.map(e => `<option value="${e}">${e}</option>`).join('');
+            if (enabled.length === 0) {
+                AiSdk.message(msg, 'No entities are enabled yet. Enable them on the Configure page before embedding.', 'warn');
+            }
+            renderSnippets();
+        } catch (e) {
+            AiSdk.message(msg, e.message, 'err');
+        }
+    }
+
+    document.querySelectorAll('input, select, textarea').forEach(el => el.addEventListener('input', renderSnippets));
+    document.getElementById('position').addEventListener('change', renderSnippets);
+
+    document.getElementById('preview').addEventListener('click', () => {
+        const v = values();
+        if (!v.entity || !v.id) {
+            AiSdk.message(msg, 'Choose an entity and a real record id to preview.', 'err');
+            return;
+        }
+        AiSdkWidget.init({
+            baseUrl: AiSdk.base,
+            token: AiSdk.token(),
+            position: v.position,
+            launcherLabel: v.label,
+            suggestions: suggestions(),
+            targets: [{ entity: v.entity, id: v.id }],
+            open: true
+        });
+        AiSdk.message(msg, 'Widget mounted in the corner of this page using your current token.', 'ok');
+    });
+
+    document.getElementById('copy').addEventListener('click', async () => {
+        try {
+            await navigator.clipboard.writeText(document.getElementById('snippet-tag').textContent);
+            AiSdk.message(msg, 'Script tag copied to clipboard.', 'ok');
+        } catch (e) {
+            AiSdk.message(msg, 'Clipboard unavailable, copy it manually.', 'warn');
+        }
+    });
+
+    document.addEventListener('DOMContentLoaded', load);
+</script>
+</body>
+</html>

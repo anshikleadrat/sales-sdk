@@ -32,4 +32,9 @@ public class ConfigureUiController {
     public String console() {
         return "ai-sdk/console";
     }
+
+    @GetMapping("/embed")
+    public String embed() {
+        return "ai-sdk/embed";
+    }
 }

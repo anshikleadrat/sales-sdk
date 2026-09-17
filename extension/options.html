@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <link rel="stylesheet" href="shared.css"/>
+    <style>body { width: 560px; margin: 0 auto; }</style>
+    <title>AI Query SDK — Settings</title>
+</head>
+<body>
+<header>
+    <strong>AI Query SDK — Settings</strong>
+    <span id="status" class="badge">checking…</span>
+</header>
+<main>
+    <label for="base-url">Deployment URL</label>
+    <input id="base-url" type="text" placeholder="https://app.example.com/ai-sdk"/>
+    <p class="muted" style="margin-top:6px">The base path of the SDK inside your application, ending in <code>/ai-sdk</code>.</p>
+
+    <label for="password">Admin password</label>
+    <input id="password" type="password" placeholder="used once to fetch a token, never stored"/>
+
+    <div class="row">
+        <button id="sign-in">Sign in</button>
+        <button id="sign-out" class="secondary">Sign out</button>
+        <button id="test" class="secondary">Test connection</button>
+    </div>
+
+    <div id="msg" class="msg"></div>
+
+    <details open style="margin-top:18px">
+        <summary>Required deployment configuration</summary>
+        <pre>ai-sdk:
+  security:
+    allowed-origins:
+      - chrome-extension://&lt;this extension's id&gt;</pre>
+    </details>
+
+    <p class="muted" style="margin-top:14px">
+        Only the issued token and its expiry are kept in extension storage. The password is sent once to
+        <code>POST /ai-sdk/auth/token</code> and never written to disk. When the token expires, sign in again.
+    </p>
+</main>
+<script src="options.js"></script>
+</body>
+</html>

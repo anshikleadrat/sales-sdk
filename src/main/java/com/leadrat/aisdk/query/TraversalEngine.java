@@ -138,11 +138,13 @@ public class TraversalEngine {
 
     private record ChildFetch(long count, List<?> items) {}
 
+    @SuppressWarnings("unchecked")
     private ChildFetch fetchByOwner(EntityManager em, Object owner, EntityMetadata childMetadata, String mappedBy,
                                     List<QueryPlan.Filter> filters, int maxRows) {
+        Class<Object> childType = (Class<Object>) childMetadata.javaType();
         CriteriaBuilder cb = em.getCriteriaBuilder();
-        CriteriaQuery<Object> criteria = cb.createQuery(Object.class);
-        Root<?> root = criteria.from(childMetadata.javaType());
+        CriteriaQuery<Object> criteria = cb.createQuery(childType);
+        Root<Object> root = criteria.from(childType);
         List<Predicate> predicates = new ArrayList<>();
         try {
             predicates.add(cb.equal(root.get(mappedBy), owner));
@@ -150,7 +152,7 @@ public class TraversalEngine {
             return new ChildFetch(0, List.of());
         }
         predicates.addAll(specificationBuilder.build(cb, root, filters));
-        criteria.select(root.as(Object.class)).where(cb.and(predicates.toArray(new Predicate[0])));
+        criteria.select(root).where(cb.and(predicates.toArray(new Predicate[0])));
 
         TypedQuery<Object> query = em.createQuery(criteria);
         query.setMaxResults(maxRows);
@@ -158,7 +160,7 @@ public class TraversalEngine {
         List<Object> items = query.getResultList();
 
         CriteriaQuery<Long> countCriteria = cb.createQuery(Long.class);
-        Root<?> countRoot = countCriteria.from(childMetadata.javaType());
+        Root<Object> countRoot = countCriteria.from(childType);
         List<Predicate> countPredicates = new ArrayList<>();
         countPredicates.add(cb.equal(countRoot.get(mappedBy), owner));
         countPredicates.addAll(specificationBuilder.build(cb, countRoot, filters));

@@ -2,6 +2,9 @@ package com.leadrat.aisdk.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @ConfigurationProperties(prefix = "ai-sdk")
 public class AiSdkProperties {
 
@@ -32,6 +35,7 @@ public class AiSdkProperties {
         private String otp;
         private String jwtSecret;
         private int jwtExpiryMinutes = 60;
+        private List<String> allowedOrigins = new ArrayList<>();
 
         public String getOtp() { return otp; }
         public void setOtp(String otp) { this.otp = otp; }
@@ -39,6 +43,8 @@ public class AiSdkProperties {
         public void setJwtSecret(String jwtSecret) { this.jwtSecret = jwtSecret; }
         public int getJwtExpiryMinutes() { return jwtExpiryMinutes; }
         public void setJwtExpiryMinutes(int jwtExpiryMinutes) { this.jwtExpiryMinutes = jwtExpiryMinutes; }
+        public List<String> getAllowedOrigins() { return allowedOrigins; }
+        public void setAllowedOrigins(List<String> allowedOrigins) { this.allowedOrigins = allowedOrigins; }
     }
 
     public static class Storage {

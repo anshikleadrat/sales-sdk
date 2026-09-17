@@ -21,6 +21,7 @@ import com.leadrat.aisdk.query.SchemaCatalog;
 import com.leadrat.aisdk.query.SpecificationBuilder;
 import com.leadrat.aisdk.query.Summarizer;
 import com.leadrat.aisdk.query.TraversalEngine;
+import com.leadrat.aisdk.security.AiSdkCorsFilter;
 import com.leadrat.aisdk.security.AuthController;
 import com.leadrat.aisdk.security.JwtAuthFilter;
 import com.leadrat.aisdk.security.JwtService;
@@ -65,6 +66,14 @@ public class AiSdkAutoConfiguration {
     @Bean
     public JwtService aiSdkJwtService(AiSdkProperties properties) {
         return new JwtService(properties);
+    }
+
+    @Bean
+    public FilterRegistrationBean<AiSdkCorsFilter> aiSdkCorsFilter(AiSdkProperties properties) {
+        FilterRegistrationBean<AiSdkCorsFilter> registration = new FilterRegistrationBean<>(new AiSdkCorsFilter(properties));
+        registration.addUrlPatterns("/ai-sdk/*");
+        registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 5);
+        return registration;
     }
 
     @Bean

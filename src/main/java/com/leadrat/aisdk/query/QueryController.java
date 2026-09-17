@@ -87,7 +87,7 @@ public class QueryController {
         if (cached != null) {
             long latency = System.currentTimeMillis() - started;
             auditLog.record(request.question(), targetSummary(request), String.join(",", targetEntities),
-                    0, true, latency, properties.getLlm().getSummarizerModel());
+                    countRows(cached), true, latency, properties.getLlm().getSummarizerModel());
             return ResponseEntity.ok(cached.asCached(latency));
         }
 
@@ -133,6 +133,28 @@ public class QueryController {
         auditLog.record(request.question(), targetSummary(request), String.join(",", entitiesTouched),
                 totalRows, false, latency, properties.getLlm().getSummarizerModel());
         return ResponseEntity.ok(response);
+    }
+
+    @SuppressWarnings("unchecked")
+    private int countRows(QueryResponse response) {
+        int rows = 0;
+        for (Object node : response.data().values()) {
+            if (!(node instanceof Map<?, ?> map)) {
+                continue;
+            }
+            rows += 1;
+            if (map.get("parents") instanceof List<?> parents) {
+                rows += parents.size();
+            }
+            if (map.get("children") instanceof List<?> groups) {
+                for (Object group : groups) {
+                    if (group instanceof TraversalResult.ChildGroup childGroup) {
+                        rows += childGroup.items().size();
+                    }
+                }
+            }
+        }
+        return rows;
     }
 
     private String targetSummary(QueryRequest request) {

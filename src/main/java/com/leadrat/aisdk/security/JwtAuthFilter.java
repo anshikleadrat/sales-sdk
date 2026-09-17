@@ -21,6 +21,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             "/ai-sdk/auth",
             "/ai-sdk/configure",
             "/ai-sdk/console",
+            "/ai-sdk/embed",
             "/ai-sdk/status");
 
     private final JwtService jwtService;
@@ -36,6 +37,10 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         String context = request.getContextPath();
         if (context != null && !context.isEmpty() && path.startsWith(context)) {
             path = path.substring(context.length());
+        }
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            chain.doFilter(request, response);
+            return;
         }
         if (!path.startsWith("/ai-sdk")) {
             chain.doFilter(request, response);

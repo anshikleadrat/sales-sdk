@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "AI Query SDK",
+  "version": "1.0.0",
+  "description": "Ask questions about business records through an AI Query SDK deployment embedded in your application.",
+  "permissions": ["storage", "activeTab"],
+  "host_permissions": ["http://*/*", "https://*/*"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "AI Query SDK"
+  },
+  "options_page": "options.html",
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}

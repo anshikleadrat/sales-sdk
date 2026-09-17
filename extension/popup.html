@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <link rel="stylesheet" href="shared.css"/>
+    <style>body { width: 380px; }</style>
+    <title>AI Query SDK</title>
+</head>
+<body>
+<header>
+    <strong>AI Query SDK</strong>
+    <span id="status" class="badge">checking…</span>
+    <button id="options" class="secondary">Settings</button>
+</header>
+<main>
+    <div id="auth" class="hidden">
+        <label for="base-url">Deployment URL</label>
+        <input id="base-url" type="text" placeholder="https://app.example.com/ai-sdk"/>
+        <label for="password">Admin password</label>
+        <input id="password" type="password"/>
+        <div class="row"><button id="sign-in" class="grow">Sign in</button></div>
+    </div>
+
+    <div id="ask" class="hidden">
+        <label for="entity">Entity</label>
+        <select id="entity"></select>
+        <label for="record-id">Record id</label>
+        <input id="record-id" type="text" placeholder="id"/>
+        <div id="detected" class="muted hidden" style="margin-top:6px"></div>
+        <label for="question">Question</label>
+        <textarea id="question" placeholder="Summarize this record and flag anything unusual"></textarea>
+        <div class="row">
+            <button id="run" class="grow">Ask</button>
+            <button id="sign-out" class="secondary">Sign out</button>
+        </div>
+        <div id="meta" class="muted" style="margin-top:8px"></div>
+        <div id="answer" class="answer hidden"></div>
+        <details id="records" class="hidden">
+            <summary>Retrieved records</summary>
+            <pre></pre>
+        </details>
+    </div>
+
+    <div id="msg" class="msg"></div>
+</main>
+<script src="popup.js"></script>
+</body>
+</html>

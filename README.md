@@ -53,6 +53,7 @@ ai-sdk:
     otp: ${AI_SDK_SETUP_OTP}
     jwt-secret: ${AI_SDK_JWT_SECRET}
     jwt-expiry-minutes: 60
+    allowed-origins: []
 
   storage:
     sqlite-path: ${AI_SDK_SQLITE_PATH:./ai-sdk-data/sdk-config.db}
@@ -108,6 +109,7 @@ The UI pages link to each other in setup order:
 2. `GET /ai-sdk/auth` — exchange the password for a JWT held in the browser tab.
 3. `GET /ai-sdk/configure` — enable entities, fields, relationships and guardrails.
 4. `GET /ai-sdk/console` — run a question against the single query endpoint.
+5. `GET /ai-sdk/embed` — build the snippet for embedding the widget in your own frontend.
 
 ## Endpoints
 
@@ -116,7 +118,7 @@ The UI pages link to each other in setup order:
 | POST | `/ai-sdk/setup` | OTP (one-time) | Set admin password |
 | POST | `/ai-sdk/auth/token` | Password | Issue JWT |
 | GET | `/ai-sdk/status` | None | Setup and datasource status |
-| GET | `/ai-sdk/setup`, `/ai-sdk/auth`, `/ai-sdk/configure`, `/ai-sdk/console` | None (shell) | UI pages |
+| GET | `/ai-sdk/setup`, `/ai-sdk/auth`, `/ai-sdk/configure`, `/ai-sdk/console`, `/ai-sdk/embed` | None (shell) | UI pages |
 | GET | `/ai-sdk/configure/schema` | JWT | Introspected schema + current config |
 | POST | `/ai-sdk/configure/entities` | JWT | Save entity/field/relationship config |
 | POST | `/ai-sdk/configure/guardrails` | JWT | Save guardrails + prompt instructions |
@@ -141,6 +143,84 @@ Options are clamped server-side to the per-entity guardrails, themselves clamped
 global ceilings. Relations that are not marked traversable are dropped from the plan even
 if the model asks for them, and fields marked sensitive or not exposed are stripped in
 code before anything is serialized for the LLM.
+
+## Frontend clients
+
+Two ready-made frontends consume the business endpoint. Both send the JWT as a bearer token
+and neither needs a build step.
+
+### Injected widget
+
+A single script served by the deployment at `/ai-sdk/assets/widget.js`. It renders a
+launcher and panel inside a shadow DOM, so it cannot collide with the host page's styles.
+
+```html
+<script src="https://app.example.com/ai-sdk/assets/widget.js"
+        data-ai-sdk-base="https://app.example.com/ai-sdk"
+        data-ai-sdk-entity="Client"
+        data-ai-sdk-id="4521"
+        data-ai-sdk-token-url="/my-app/ai-sdk-token"
+        data-ai-sdk-position="bottom-right"
+        data-ai-sdk-label="Ask AI"></script>
+```
+
+Or drive it from code, which suits single-page apps where the current record changes:
+
+```js
+const widget = AiSdkWidget.init({
+  baseUrl: 'https://app.example.com/ai-sdk',
+  getToken: async () => (await fetch('/my-app/ai-sdk-token')).json().then(r => r.token),
+  targets: [{ entity: 'Client', id: '4521' }],
+  options: { parentDepth: 2, childDepth: 1 },
+  onAnswer: response => console.log(response.answer)
+});
+
+widget.setTargets([{ entity: 'Lead', id: '8890' }]);
+```
+
+The same script exposes a headless client when you want to render answers yourself:
+
+```js
+const client = AiSdkWidget.client({ baseUrl: '/ai-sdk', tokenUrl: '/my-app/ai-sdk-token' });
+const response = await client.query({
+  question: 'Summarize this client and flag churn risk',
+  targets: [{ entity: 'Client', id: '4521' }]
+});
+```
+
+With no targets configured, the widget picks up any element on the page carrying
+`data-ai-sdk-entity` and `data-ai-sdk-id`.
+
+**Tokens.** The recommended shape is a route in your own application that calls
+`POST /ai-sdk/auth/token` server-side for signed-in users and returns `{ "token": "..." }`,
+so the admin password never reaches a browser. Failing that the widget reuses a token from
+session storage, and as a last resort prompts for the admin password on a 401.
+
+`GET /ai-sdk/embed` builds the snippet for you from the entities you have enabled, and can
+mount a live preview on the page.
+
+### Chrome extension
+
+`extension/` holds an unpacked Manifest V3 extension: a popup for asking about any record,
+and a content script that mounts a panel on pages that mark records up with
+`data-ai-sdk-entity` / `data-ai-sdk-id`. The token lives in `chrome.storage.local`; the
+password is never stored. See `extension/README.md` for loading and packaging.
+
+### Cross-origin access
+
+A frontend on a different origin — including the extension — must have its origin
+allow-listed, otherwise the browser blocks the call:
+
+```yaml
+ai-sdk:
+  security:
+    allowed-origins:
+      - https://frontend.example.com
+      - chrome-extension://<extension id>
+```
+
+Leaving `allowed-origins` empty (the default) sends no CORS headers at all, which is the
+right setting when everything is same-origin.
 
 ## Operations
 
