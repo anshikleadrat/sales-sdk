@@ -9,8 +9,8 @@
 <body th:attr="data-base=@{/ai-sdk}">
 <div th:replace="~{ai-sdk/fragments :: topbar}"></div>
 <main>
-    <h1>Step 4 — Ask a question</h1>
-    <p class="sub">This calls the single business endpoint, POST /ai-sdk/query, with the targets below.</p>
+    <h1>Query console</h1>
+    <p class="sub">Call <code>POST /ai-sdk/query</code> directly — useful for verifying your configuration before embedding the widget.</p>
 
     <div class="steps">
         <a th:href="@{/ai-sdk/setup}">Setup<span>One-time admin password</span></a>
@@ -20,23 +20,28 @@
 
     <div class="card">
         <label for="question">Question</label>
-        <textarea id="question" placeholder="Summarize these clients and flag anyone at churn risk"></textarea>
+        <textarea id="question" placeholder="Summarize these records and flag anything unusual…"></textarea>
 
         <h2>Targets</h2>
+        <div id="targets-empty" class="empty-state" style="display:none; padding:24px 0; text-align:left;">
+            <p>No entities are enabled yet. <a th:href="@{/ai-sdk/configure}">Go to Configure</a> to enable entities before running queries.</p>
+        </div>
         <div id="targets"></div>
         <div class="row" style="margin-top:10px">
-            <button id="add-target" class="secondary">Add target</button>
+            <button id="add-target" class="secondary" disabled>+ Add target</button>
         </div>
 
-        <h2>Options</h2>
+        <hr class="divider"/>
+
+        <h2>Options <span class="muted" style="font-weight:400;font-size:12px">— leave blank to use server defaults</span></h2>
         <div class="row">
-            <div class="grow"><label>Parent depth</label><input id="parent-depth" type="number" min="0" placeholder="server default"/></div>
-            <div class="grow"><label>Child depth</label><input id="child-depth" type="number" min="0" placeholder="server default"/></div>
-            <div class="grow"><label>Max children per relation</label><input id="max-children" type="number" min="1" placeholder="server default"/></div>
+            <div class="grow"><label>Parent depth</label><input id="parent-depth" type="number" min="0" placeholder="default"/></div>
+            <div class="grow"><label>Child depth</label><input id="child-depth" type="number" min="0" placeholder="default"/></div>
+            <div class="grow"><label>Max children per relation</label><input id="max-children" type="number" min="1" placeholder="default"/></div>
         </div>
 
         <div class="row" style="margin-top:16px">
-            <button id="ask">Run query</button>
+            <button id="ask" disabled>Run query</button>
             <span id="meta" class="badge">not run yet</span>
         </div>
         <div id="msg" class="msg"></div>
@@ -56,19 +61,36 @@
 <script>
     const msg = document.getElementById('msg');
     const targetsEl = document.getElementById('targets');
+    const targetsEmpty = document.getElementById('targets-empty');
+    const addTargetBtn = document.getElementById('add-target');
+    const askBtn = document.getElementById('ask');
     let enabledEntities = [];
 
+    function entityOptions(selected) {
+        return enabledEntities.map(e => `<option value="${e}"${e === selected ? ' selected' : ''}>${e}</option>`).join('');
+    }
+
     function addTargetRow(entity = '', id = '') {
+        if (enabledEntities.length === 0) return;
         const row = document.createElement('div');
-        row.className = 'row target-row';
-        row.style.marginTop = '8px';
+        row.className = 'target-row row';
         row.innerHTML = `
-            <select class="t-entity grow">
-                ${enabledEntities.map(e => `<option value="${e}" ${e === entity ? 'selected' : ''}>${e}</option>`).join('')}
-            </select>
-            <input class="t-id grow" type="text" placeholder="id" value="${id}"/>
-            <button class="secondary t-remove" type="button">Remove</button>`;
-        row.querySelector('.t-remove').addEventListener('click', () => row.remove());
+            <div class="grow">
+                <label>Entity</label>
+                <select class="t-entity">${entityOptions(entity)}</select>
+            </div>
+            <div class="grow">
+                <label>Record ID</label>
+                <input class="t-id" type="text" placeholder="e.g. 42" value="${id}"/>
+            </div>
+            <div style="align-self:flex-end">
+                <button class="secondary t-remove" type="button">Remove</button>
+            </div>`;
+        row.querySelector('.t-remove').addEventListener('click', () => {
+            row.remove();
+            if (targetsEl.children.length === 0) targetsEmpty.style.display = '';
+        });
+        targetsEmpty.style.display = 'none';
         targetsEl.appendChild(row);
     }
 
@@ -78,9 +100,12 @@
             const schema = await AiSdk.request('/configure/schema');
             enabledEntities = schema.entities.filter(e => e.enabled && e.present).map(e => e.entityName);
             if (enabledEntities.length === 0) {
-                AiSdk.message(msg, 'No entities are enabled yet. Enable them on the Configure page first.', 'warn');
+                targetsEmpty.style.display = '';
+                AiSdk.message(msg, 'No entities are enabled. Open Configure, check "Queryable by the SDK" on the entities you want to expose, and save.', 'warn');
                 return;
             }
+            addTargetBtn.disabled = false;
+            askBtn.disabled = false;
             addTargetRow();
         } catch (e) {
             AiSdk.message(msg, e.message, 'err');
@@ -92,9 +117,9 @@
         return value === '' ? null : Number(value);
     }
 
-    document.getElementById('add-target').addEventListener('click', () => addTargetRow());
+    addTargetBtn.addEventListener('click', () => addTargetRow());
 
-    document.getElementById('ask').addEventListener('click', async () => {
+    askBtn.addEventListener('click', async () => {
         AiSdk.hide(msg);
         const targets = Array.from(document.querySelectorAll('.target-row'))
             .map(row => ({ entity: row.querySelector('.t-entity').value, id: row.querySelector('.t-id').value.trim() }))
@@ -103,8 +128,8 @@
             AiSdk.message(msg, 'Add at least one target with an id.', 'err');
             return;
         }
-        const button = document.getElementById('ask');
-        button.disabled = true;
+        askBtn.disabled = true;
+        askBtn.textContent = 'Running…';
         document.getElementById('meta').textContent = 'running…';
         try {
             const body = await AiSdk.request('/query', {
@@ -125,11 +150,14 @@
             document.getElementById('data').textContent = JSON.stringify(body.data, null, 2);
             document.getElementById('meta').textContent =
                 `${body.meta.cached ? 'cached' : 'fresh'} · parents ${body.meta.parentDepth} · children ${body.meta.childDepth} · ${body.meta.latencyMs} ms`;
+            document.getElementById('meta').className = 'badge on';
         } catch (e) {
             AiSdk.message(msg, e.message, 'err');
             document.getElementById('meta').textContent = 'failed';
+            document.getElementById('meta').className = 'badge off';
         } finally {
-            button.disabled = false;
+            askBtn.disabled = false;
+            askBtn.textContent = 'Run query';
         }
     });
 
