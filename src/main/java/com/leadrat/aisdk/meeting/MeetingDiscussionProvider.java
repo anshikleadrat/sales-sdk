@@ -22,7 +22,7 @@ public class MeetingDiscussionProvider {
     }
 
     public boolean enabled() {
-        return properties.getMeeting().isEnabled();
+        return properties.getMeeting().isActive();
     }
 
     public String fingerprint(List<String> leadIds) {

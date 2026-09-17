@@ -2,6 +2,7 @@ package com.leadrat.aisdk.configure;
 
 import com.leadrat.aisdk.audit.AuditLogService;
 import com.leadrat.aisdk.config.AiSdkProperties;
+import com.leadrat.aisdk.config.AiSdkSettings;
 import com.leadrat.aisdk.config.ReadOnlyEntityManagerProvider;
 import com.leadrat.aisdk.introspection.SchemaIntrospector;
 import com.leadrat.aisdk.security.PasswordStore;
@@ -29,18 +30,20 @@ public class ConfigureApiController {
     private final ReadOnlyEntityManagerProvider readOnlyProvider;
     private final AuditLogService auditLog;
     private final AiSdkProperties properties;
+    private final AiSdkSettings settings;
 
     public ConfigureApiController(ConfigRepository configRepository, SchemaIntrospector introspector,
                                   PasswordStore passwordStore, SdkCredentials credentials,
                                   ReadOnlyEntityManagerProvider readOnlyProvider,
-                                  AuditLogService auditLog, AiSdkProperties properties) {
+                                  AuditLogService auditLog, AiSdkSettings settings) {
         this.configRepository = configRepository;
         this.introspector = introspector;
         this.passwordStore = passwordStore;
         this.credentials = credentials;
         this.readOnlyProvider = readOnlyProvider;
         this.auditLog = auditLog;
-        this.properties = properties;
+        this.settings = settings;
+        this.properties = settings.properties();
     }
 
     public record EntitySelectionRequest(List<EntityConfig> entities, List<FieldConfig> fields,
@@ -55,6 +58,9 @@ public class ConfigureApiController {
         status.put("otpConfigured", credentials.setupOtp() != null && !credentials.setupOtp().isBlank());
         status.put("otpGenerated", credentials.setupOtpGenerated());
         status.put("readOnlyEnforcement", readOnlyProvider.enforcement());
+        status.put("queryReady", settings.missing().isEmpty());
+        status.put("missingSettings", settings.missing());
+        status.put("meetingEnabled", properties.getMeeting().isActive());
         return status;
     }
 

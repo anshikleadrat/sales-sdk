@@ -8,6 +8,10 @@ import java.util.List;
 @ConfigurationProperties(prefix = "ai-sdk")
 public class AiSdkProperties {
 
+    static boolean hasText(String value) {
+        return value != null && !value.isBlank();
+    }
+
     private boolean enabled = true;
     private Security security = new Security();
     private Storage storage = new Storage();
@@ -133,15 +137,16 @@ public class AiSdkProperties {
     }
 
     public static class Meeting {
-        private boolean enabled = false;
+        private Boolean enabled;
         private String leadEntity = "Lead";
         private int maxDiscussionsPerLead = 5;
         private int discussionCharLimit = 6000;
         private Google google = new Google();
         private Recall recall = new Recall();
 
-        public boolean isEnabled() { return enabled; }
-        public void setEnabled(boolean enabled) { this.enabled = enabled; }
+        public boolean isActive() { return enabled != null ? enabled : google.isActive() || recall.isActive(); }
+        public Boolean getEnabled() { return enabled; }
+        public void setEnabled(Boolean enabled) { this.enabled = enabled; }
         public String getLeadEntity() { return leadEntity; }
         public void setLeadEntity(String leadEntity) { this.leadEntity = leadEntity; }
         public int getMaxDiscussionsPerLead() { return maxDiscussionsPerLead; }
@@ -155,15 +160,16 @@ public class AiSdkProperties {
     }
 
     public static class Google {
-        private boolean enabled = false;
+        private Boolean enabled;
         private String clientId = "";
         private String clientSecret = "";
         private String redirectUri = "";
         private String tokenEncryptionKey = "";
         private String postConnectRedirect = "";
 
-        public boolean isEnabled() { return enabled; }
-        public void setEnabled(boolean enabled) { this.enabled = enabled; }
+        public boolean isActive() { return enabled != null ? enabled : hasText(clientId) && hasText(clientSecret); }
+        public Boolean getEnabled() { return enabled; }
+        public void setEnabled(Boolean enabled) { this.enabled = enabled; }
         public String getClientId() { return clientId; }
         public void setClientId(String clientId) { this.clientId = clientId; }
         public String getClientSecret() { return clientSecret; }
@@ -177,7 +183,7 @@ public class AiSdkProperties {
     }
 
     public static class Recall {
-        private boolean enabled = false;
+        private Boolean enabled;
         private String baseUrl = "https://us-east-1.recall.ai";
         private String apiKey = "";
         private String webhookSecret = "";
@@ -191,8 +197,9 @@ public class AiSdkProperties {
         private int directBotWindowMinutes = 15;
         private int reconcileSeconds = 600;
 
-        public boolean isEnabled() { return enabled; }
-        public void setEnabled(boolean enabled) { this.enabled = enabled; }
+        public boolean isActive() { return enabled != null ? enabled : hasText(apiKey); }
+        public Boolean getEnabled() { return enabled; }
+        public void setEnabled(Boolean enabled) { this.enabled = enabled; }
         public String getBaseUrl() { return baseUrl; }
         public void setBaseUrl(String baseUrl) { this.baseUrl = baseUrl; }
         public String getApiKey() { return apiKey; }

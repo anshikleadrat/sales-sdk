@@ -29,8 +29,9 @@ public class MeetingService {
     }
 
     public Meeting schedule(CreateMeetingRequest request) {
-        if (!properties.getMeeting().isEnabled()) {
-            throw new IllegalArgumentException("The meeting feature is disabled (ai-sdk.meeting.enabled)");
+        if (!properties.getMeeting().isActive()) {
+            throw new IllegalArgumentException("Meetings are off. Add a Google OAuth client id and secret on the "
+                    + "SDK's keys page (/ai-sdk/settings) and the feature turns itself on.");
         }
         if (request == null || request.leadId() == null || request.leadId().isBlank()) {
             throw new IllegalArgumentException("leadId is required");
@@ -39,8 +40,8 @@ public class MeetingService {
             throw new IllegalArgumentException("Meeting time must be in the future");
         }
         if (!calendarClient.enabled()) {
-            throw new IllegalArgumentException(
-                    "Google Calendar is not enabled (ai-sdk.meeting.google.enabled)");
+            throw new IllegalArgumentException("Google Calendar is not configured. Add the OAuth client id and "
+                    + "secret on the SDK's keys page (/ai-sdk/settings).");
         }
         if (!calendarClient.canGenerateLinks()) {
             throw new IllegalArgumentException(

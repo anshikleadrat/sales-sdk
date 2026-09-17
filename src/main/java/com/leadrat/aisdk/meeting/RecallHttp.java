@@ -20,7 +20,7 @@ public class RecallHttp {
 
     public boolean configured() {
         AiSdkProperties.Recall recall = properties.getMeeting().getRecall();
-        return recall.isEnabled() && recall.getApiKey() != null && !recall.getApiKey().isBlank();
+        return recall.isActive() && recall.getApiKey() != null && !recall.getApiKey().isBlank();
     }
 
     public RestClient client() {

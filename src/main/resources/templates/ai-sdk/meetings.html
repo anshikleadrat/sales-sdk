@@ -9,10 +9,11 @@
 <body th:attr="data-base=@{/ai-sdk}">
 <div th:replace="~{ai-sdk/fragments :: topbar}"></div>
 <main>
-    <h1>Step 4 — Connect Google and generate meeting links</h1>
+    <h1>Step 5 — Connect Google and generate meeting links</h1>
     <p class="sub">One Google account backs every meeting link this deployment generates. What is said in those meetings is transcribed and stored against the lead, and every answer the SDK writes about that lead is grounded in it.</p>
 
     <div class="steps">
+        <a th:href="@{/ai-sdk/settings}">Keys and models<span>Google client, Recall.ai key, redirect URI</span></a>
         <a th:href="@{/ai-sdk/configure}">Configure schema<span>Choose entities, fields and guardrails</span></a>
         <a th:href="@{/ai-sdk/console}">Query console<span>See discussions feed the answer</span></a>
         <a th:href="@{/ai-sdk/embed}">Embed<span>Put the button in your app</span></a>
@@ -108,9 +109,9 @@
 
             document.getElementById('generate').disabled = !status.canGenerateLinks;
             if (!status.enabled) {
-                AiSdk.message(googleMsg, 'The meeting feature is off. Set ai-sdk.meeting.enabled=true in the host application.', 'warn');
+                AiSdk.message(googleMsg, 'Meetings are off because no Google OAuth client is configured yet. Add one on the keys page and it turns itself on.', 'warn');
             } else if (!status.googleEnabled) {
-                AiSdk.message(googleMsg, 'Google Calendar is off. Set ai-sdk.meeting.google.enabled=true and configure the OAuth client.', 'warn');
+                AiSdk.message(googleMsg, 'Google Calendar needs an OAuth client id and secret — add them on the keys page.', 'warn');
             } else if (!status.googleConnected) {
                 AiSdk.message(googleMsg, 'Connect a Google account to start generating meeting links.', 'warn');
             } else {

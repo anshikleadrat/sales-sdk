@@ -18,8 +18,7 @@ public class SqliteConfig {
     private static final Logger log = LoggerFactory.getLogger(SqliteConfig.class);
 
     public static DataSource dataSource(AiSdkProperties properties) {
-        Path path = Paths.get(properties.getStorage().getSqlitePath()).toAbsolutePath();
-        prepareFile(path);
+        Path path = resolve(properties);
         DriverManagerDataSource ds = new DriverManagerDataSource();
         ds.setDriverClassName("org.sqlite.JDBC");
         ds.setUrl("jdbc:sqlite:" + path);
@@ -87,6 +86,12 @@ public class SqliteConfig {
                 cached          INTEGER,
                 latency_ms      INTEGER,
                 llm_model       TEXT
+            )""");
+        jdbc.execute("""
+            CREATE TABLE IF NOT EXISTS sdk_setting (
+                name       TEXT PRIMARY KEY,
+                value      TEXT NOT NULL,
+                updated_at TEXT NOT NULL
             )""");
         jdbc.execute("""
             CREATE TABLE IF NOT EXISTS sdk_secret (
@@ -163,6 +168,25 @@ public class SqliteConfig {
                 version INTEGER NOT NULL
             )""");
         jdbc.update("INSERT OR IGNORE INTO config_meta (id, version) VALUES (1, 1)");
+    }
+
+    private static Path resolve(AiSdkProperties properties) {
+        Path configured = Paths.get(properties.getStorage().getSqlitePath()).toAbsolutePath();
+        try {
+            prepareFile(configured);
+            return configured;
+        } catch (RuntimeException e) {
+            Path fallback = Paths.get(System.getProperty("java.io.tmpdir"), "ai-sdk-data", "sdk-config.db")
+                    .toAbsolutePath();
+            if (fallback.equals(configured)) {
+                throw e;
+            }
+            prepareFile(fallback);
+            log.warn("ai-sdk: {} is not writable, using {} instead — set ai-sdk.storage.sqlite-path to a durable "
+                    + "location so configuration survives restarts", configured, fallback);
+            properties.getStorage().setSqlitePath(fallback.toString());
+            return fallback;
+        }
     }
 
     private static void prepareFile(Path path) {

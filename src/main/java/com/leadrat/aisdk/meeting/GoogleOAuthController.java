@@ -1,6 +1,7 @@
 package com.leadrat.aisdk.meeting;
 
 import com.leadrat.aisdk.config.AiSdkProperties;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -26,6 +27,7 @@ public class GoogleOAuthController {
     private static final String SCOPES = "https://www.googleapis.com/auth/calendar.events"
             + " https://www.googleapis.com/auth/userinfo.email";
     private static final Duration STATE_TTL = Duration.ofMinutes(10);
+    public static final String CALLBACK_PATH = "/ai-sdk/meetings/google/callback";
 
     private final AiSdkProperties properties;
     private final GoogleTokenStore tokenStore;
@@ -43,14 +45,14 @@ public class GoogleOAuthController {
     }
 
     @GetMapping("/connect")
-    public ResponseEntity<Map<String, String>> connect() {
+    public ResponseEntity<Map<String, String>> connect(HttpServletRequest request) {
         AiSdkProperties.Google google = properties.getMeeting().getGoogle();
         String nonce = UUID.randomUUID().toString();
         states.entrySet().removeIf(entry -> entry.getValue().isBefore(Instant.now()));
         states.put(nonce, Instant.now().plus(STATE_TTL));
         String url = "https://accounts.google.com/o/oauth2/v2/auth"
                 + "?client_id=" + enc(google.getClientId())
-                + "&redirect_uri=" + enc(google.getRedirectUri())
+                + "&redirect_uri=" + enc(redirectUri(request))
                 + "&response_type=code"
                 + "&scope=" + enc(SCOPES)
                 + "&access_type=offline&prompt=consent"
@@ -60,10 +62,10 @@ public class GoogleOAuthController {
 
     @GetMapping("/callback")
     public void callback(@RequestParam String code, @RequestParam String state,
-                         HttpServletResponse response) throws IOException {
+                         HttpServletRequest request, HttpServletResponse response) throws IOException {
         Instant expiry = states.remove(state);
         if (expiry == null || expiry.isBefore(Instant.now())) {
-            response.sendRedirect(landing("expired"));
+            response.sendRedirect(landing(request, "expired"));
             return;
         }
         AiSdkProperties.Google google = properties.getMeeting().getGoogle();
@@ -75,12 +77,12 @@ public class GoogleOAuthController {
                         "code", code,
                         "client_id", google.getClientId(),
                         "client_secret", google.getClientSecret(),
-                        "redirect_uri", google.getRedirectUri(),
+                        "redirect_uri", redirectUri(request),
                         "grant_type", "authorization_code"))
                 .retrieve()
                 .body(Map.class);
         if (token == null || token.get("refresh_token") == null || token.get("access_token") == null) {
-            response.sendRedirect(landing("failed"));
+            response.sendRedirect(landing(request, "failed"));
             return;
         }
         @SuppressWarnings("unchecked")
@@ -95,7 +97,7 @@ public class GoogleOAuthController {
         long expiresIn = token.get("expires_in") instanceof Number n ? n.longValue() : 3600L;
         tokenStore.cacheAccessToken(String.valueOf(token.get("access_token")), expiresIn);
         recallCalendarService.connect();
-        response.sendRedirect(landing("connected"));
+        response.sendRedirect(landing(request, "connected"));
     }
 
     @DeleteMapping
@@ -119,13 +121,20 @@ public class GoogleOAuthController {
         return ResponseEntity.ok(Map.of("status", "disconnected"));
     }
 
-    private String landing(String status) {
-        AiSdkProperties.Google google = properties.getMeeting().getGoogle();
-        String base = google.getPostConnectRedirect();
+    private String landing(HttpServletRequest request, String status) {
+        String base = properties.getMeeting().getGoogle().getPostConnectRedirect();
         if (base == null || base.isBlank()) {
-            base = google.getRedirectUri().replace("/ai-sdk/meetings/google/callback", "/ai-sdk/meetings");
+            base = redirectUri(request).replace("/ai-sdk/meetings/google/callback", "/ai-sdk/meetings");
         }
         return base + (base.contains("?") ? "&" : "?") + "google=" + status;
+    }
+
+    private String redirectUri(HttpServletRequest request) {
+        String configured = properties.getMeeting().getGoogle().getRedirectUri();
+        if (configured != null && !configured.isBlank()) {
+            return configured.trim();
+        }
+        return AiSdkUrls.externalBase(request) + CALLBACK_PATH;
     }
 
     private String enc(String s) {

@@ -111,7 +111,7 @@ public class MeetingController {
     public ResponseEntity<Map<String, Object>> status() {
         GoogleCredential credential = credentialStore.findConnected().orElse(null);
         Map<String, Object> body = new LinkedHashMap<>();
-        body.put("enabled", properties.getMeeting().isEnabled());
+        body.put("enabled", properties.getMeeting().isActive());
         body.put("googleEnabled", calendarClient.enabled());
         body.put("googleConnected", credential != null);
         body.put("googleEmail", credential == null ? null : credential.getGoogleEmail());

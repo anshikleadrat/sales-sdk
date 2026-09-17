@@ -20,6 +20,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             "/ai-sdk/auth/token",
             "/ai-sdk/auth",
             "/ai-sdk/configure",
+            "/ai-sdk/settings",
             "/ai-sdk/console",
             "/ai-sdk/meetings",
             "/ai-sdk/embed",

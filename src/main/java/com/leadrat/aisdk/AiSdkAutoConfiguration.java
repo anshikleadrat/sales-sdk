@@ -4,10 +4,13 @@ import tools.jackson.databind.ObjectMapper;
 import com.leadrat.aisdk.audit.AuditLogService;
 import com.leadrat.aisdk.config.AiSdkProperties;
 import com.leadrat.aisdk.config.ReadOnlyEntityManagerProvider;
+import com.leadrat.aisdk.config.AiSdkSettings;
+import com.leadrat.aisdk.config.SettingsStore;
 import com.leadrat.aisdk.config.SqliteStore;
 import com.leadrat.aisdk.configure.ConfigRepository;
 import com.leadrat.aisdk.configure.ConfigureApiController;
 import com.leadrat.aisdk.configure.ConfigureUiController;
+import com.leadrat.aisdk.configure.SettingsController;
 import com.leadrat.aisdk.introspection.SchemaIntrospector;
 import com.leadrat.aisdk.license.LicenseValidator;
 import com.leadrat.aisdk.llm.OpenRouterClient;
@@ -89,6 +92,16 @@ public class AiSdkAutoConfiguration {
     }
 
     @Bean
+    public SettingsStore aiSdkSettingsStore(SqliteStore store) {
+        return new SettingsStore(store.jdbc());
+    }
+
+    @Bean
+    public AiSdkSettings aiSdkSettings(AiSdkProperties properties, SettingsStore settingsStore, SecretStore secretStore) {
+        return new AiSdkSettings(properties, settingsStore, secretStore);
+    }
+
+    @Bean
     public SdkCredentials aiSdkCredentials(AiSdkProperties properties, SecretStore secretStore) {
         return new SdkCredentials(properties, secretStore);
     }
@@ -143,8 +156,8 @@ public class AiSdkAutoConfiguration {
     }
 
     @Bean
-    public OpenRouterClient aiSdkOpenRouterClient(AiSdkProperties properties) {
-        return new OpenRouterClient(properties);
+    public OpenRouterClient aiSdkOpenRouterClient(AiSdkSettings settings) {
+        return new OpenRouterClient(settings.properties());
     }
 
     @Bean
@@ -314,8 +327,14 @@ public class AiSdkAutoConfiguration {
                                                               SdkCredentials credentials,
                                                               ReadOnlyEntityManagerProvider readOnlyProvider,
                                                               AuditLogService auditLog,
-                                                              AiSdkProperties properties) {
-        return new ConfigureApiController(configRepository, introspector, passwordStore, credentials, readOnlyProvider, auditLog, properties);
+                                                              AiSdkSettings settings) {
+        return new ConfigureApiController(configRepository, introspector, passwordStore, credentials, readOnlyProvider, auditLog, settings);
+    }
+
+    @Bean
+    public SettingsController aiSdkSettingsController(AiSdkSettings settings, MeetingReconciler reconciler,
+                                                     OpenRouterClient llmClient) {
+        return new SettingsController(settings, reconciler, llmClient);
     }
 
     @Bean
@@ -326,7 +345,7 @@ public class AiSdkAutoConfiguration {
     @Bean
     public ApplicationRunner aiSdkStartupRunner(SchemaIntrospector introspector, LicenseValidator licenseValidator,
                                                 SdkCredentials credentials, PasswordStore passwordStore,
-                                                MeetingReconciler meetingReconciler) {
+                                                MeetingReconciler meetingReconciler, AiSdkSettings settings) {
         return args -> {
             try {
                 introspector.scan();
@@ -334,9 +353,17 @@ public class AiSdkAutoConfiguration {
                 log.warn("ai-sdk: startup introspection failed ({})", e.toString());
             }
             announceSetup(credentials, passwordStore);
+            announceMissing(settings);
             meetingReconciler.start();
             licenseValidator.start();
         };
+    }
+
+    private void announceMissing(AiSdkSettings settings) {
+        if (!settings.missing().isEmpty()) {
+            log.warn("ai-sdk: no LLM API key yet — open /ai-sdk/settings and paste an OpenRouter key, "
+                    + "or set OPENROUTER_API_KEY in the host application. Everything else is already configured.");
+        }
     }
 
     private void announceSetup(SdkCredentials credentials, PasswordStore passwordStore) {

@@ -33,7 +33,7 @@ public class MeetingReconciler implements AutoCloseable {
 
     public void start() {
         int seconds = properties.getMeeting().getRecall().getReconcileSeconds();
-        if (!properties.getMeeting().isEnabled() || seconds <= 0 || scheduler != null) {
+        if (!properties.getMeeting().isActive() || seconds <= 0 || scheduler != null) {
             return;
         }
         scheduler = Executors.newSingleThreadScheduledExecutor(runnable -> {

@@ -36,7 +36,7 @@ public class GoogleCalendarClient {
 
     public boolean enabled() {
         AiSdkProperties.Google google = properties.getMeeting().getGoogle();
-        return google.isEnabled() && google.getClientId() != null && !google.getClientId().isBlank();
+        return google.isActive() && google.getClientId() != null && !google.getClientId().isBlank();
     }
 
     public boolean canGenerateLinks() {

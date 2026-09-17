@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>AI Query SDK — Keys</title>
+    <link rel="stylesheet" th:href="@{/ai-sdk/assets/styles.css}"/>
+</head>
+<body th:attr="data-base=@{/ai-sdk}">
+<div th:replace="~{ai-sdk/fragments :: topbar}"></div>
+<main>
+    <h1>Step 3 — Keys and models</h1>
+    <p class="sub">Everything the SDK needs from the outside world is entered here and stored in the SDK's own SQLite file. The host application needs no environment variable — anything it already sets is picked up and shown as <em>from host</em>, and what you save here wins.</p>
+
+    <div class="steps">
+        <a th:href="@{/ai-sdk/configure}">Configure schema<span>Choose entities, fields and guardrails</span></a>
+        <a th:href="@{/ai-sdk/meetings}">Connect Google<span>Generate meeting links</span></a>
+        <a th:href="@{/ai-sdk/console}">Query console<span>Ask a question</span></a>
+    </div>
+
+    <div class="card">
+        <h2>Answering <span id="models-badge" class="badge">—</span></h2>
+        <p class="sub">The API key is the only thing the SDK truly cannot work without. The two model fields offer every model your OpenRouter account can reach, read live from the configured base URL.</p>
+        <div id="group-llm"></div>
+        <datalist id="model-list"></datalist>
+    </div>
+
+    <div class="card">
+        <h2>Meetings <span id="meeting-badge" class="badge">checking…</span></h2>
+        <p class="sub">Optional. Fill the Google client in and meeting links turn on; add the Recall.ai key and the notetaker turns on. No enable flags to set.</p>
+        <div id="group-meeting"></div>
+        <table>
+            <tbody>
+            <tr><td>Redirect URI to register with Google</td><td id="s-redirect" class="muted">—</td></tr>
+            <tr><td>Webhook URL to register with Recall.ai</td><td id="s-webhook" class="muted">—</td></tr>
+            <tr><td>SDK store</td><td id="s-storage" class="muted">—</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="card">
+        <h2>Browser access</h2>
+        <p class="sub">Only needed when the widget or the extension calls the SDK from another origin. Leave it empty for a same-origin frontend.</p>
+        <div id="group-security"></div>
+    </div>
+
+    <div class="row" style="margin-top:16px">
+        <button id="save">Save</button>
+        <button id="reload" class="secondary">Reload</button>
+        <span id="save-badge" class="badge">—</span>
+    </div>
+    <div id="msg" class="msg"></div>
+</main>
+<script th:src="@{/ai-sdk/assets/app.js}"></script>
+<script>
+    const msg = document.getElementById('msg');
+    const LLM_KEYS = ['llm.provider', 'llm.api-key', 'llm.base-url', 'llm.planner-model', 'llm.summarizer-model', 'llm.timeout-seconds'];
+    const MODEL_KEYS = ['llm.planner-model', 'llm.summarizer-model'];
+    const SECURITY_KEYS = ['security.allowed-origins'];
+
+    function esc(value) {
+        return (value === null || value === undefined) ? '' : String(value)
+            .replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
+    }
+
+    function field(name, entry) {
+        const placeholder = entry.set
+            ? (entry.secret ? entry.value : entry.value) + (entry.source === 'host' ? ' (from host)' : '')
+            : 'not set';
+        const list = MODEL_KEYS.includes(name) ? ' list="model-list"' : '';
+        return `<label for="f-${esc(name)}">${esc(entry.label)} <span class="muted">${esc(name)}</span></label>
+                <input id="f-${esc(name)}" type="${entry.secret ? 'password' : 'text'}"
+                       autocomplete="off"${list} placeholder="${esc(placeholder)}"/>`;
+    }
+
+    function render(payload) {
+        const settings = payload.settings;
+        const llm = document.getElementById('group-llm');
+        const meeting = document.getElementById('group-meeting');
+        const security = document.getElementById('group-security');
+        llm.innerHTML = '';
+        meeting.innerHTML = '';
+        security.innerHTML = '';
+        Object.keys(settings).forEach(name => {
+            const target = LLM_KEYS.includes(name) ? llm : SECURITY_KEYS.includes(name) ? security : meeting;
+            target.insertAdjacentHTML('beforeend', field(name, settings[name]));
+        });
+        document.getElementById('s-redirect').textContent = payload.effectiveRedirectUri;
+        document.getElementById('s-webhook').textContent = payload.webhookUrl;
+        document.getElementById('s-storage').textContent = payload.storagePath;
+
+        const badge = document.getElementById('meeting-badge');
+        badge.textContent = payload.googleEnabled
+            ? (payload.recallEnabled ? 'links + notetaker on' : 'links on, notetaker off')
+            : 'off';
+        badge.className = 'badge ' + (payload.googleEnabled ? 'on' : 'off');
+
+        if (!payload.queryReady) {
+            AiSdk.message(msg, 'Add an OpenRouter API key to start answering questions.', 'warn');
+        } else {
+            AiSdk.hide(msg);
+        }
+    }
+
+    async function loadModels() {
+        const badge = document.getElementById('models-badge');
+        try {
+            const payload = await AiSdk.request('/configure/settings/models');
+            document.getElementById('model-list').innerHTML =
+                payload.models.map(id => `<option value="${esc(id)}"></option>`).join('');
+            badge.textContent = payload.models.length
+                ? payload.models.length + ' models available' : 'model list unavailable';
+            badge.className = 'badge ' + (payload.models.length ? 'on' : 'off');
+        } catch (e) {
+            badge.textContent = 'model list unavailable';
+            badge.className = 'badge off';
+        }
+    }
+
+    async function load() {
+        if (!AiSdk.requireToken()) return;
+        try {
+            render(await AiSdk.request('/configure/settings'));
+            await loadModels();
+        } catch (e) {
+            AiSdk.message(msg, e.message, 'err');
+        }
+    }
+
+    document.getElementById('save').addEventListener('click', async () => {
+        const values = {};
+        document.querySelectorAll('input[id^="f-"]').forEach(input => {
+            const value = input.value.trim();
+            if (value) values[input.id.substring(2)] = value;
+        });
+        if (Object.keys(values).length === 0) {
+            AiSdk.message(msg, 'Nothing to save — fill in a field first.', 'warn');
+            return;
+        }
+        document.getElementById('save-badge').textContent = 'saving…';
+        try {
+            render(await AiSdk.request('/configure/settings', { method: 'POST', body: JSON.stringify(values) }));
+            document.getElementById('save-badge').textContent = 'saved';
+            AiSdk.message(msg, 'Saved. The change is live — no restart needed.', 'ok');
+            await loadModels();
+        } catch (e) {
+            document.getElementById('save-badge').textContent = '—';
+            AiSdk.message(msg, e.message, 'err');
+        }
+    });
+
+    document.getElementById('reload').addEventListener('click', load);
+    document.addEventListener('DOMContentLoaded', load);
+</script>
+</body>
+</html>

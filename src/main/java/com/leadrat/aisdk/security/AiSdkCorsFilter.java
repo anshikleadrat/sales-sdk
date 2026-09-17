@@ -26,7 +26,7 @@ public class AiSdkCorsFilter extends OncePerRequestFilter {
             response.setHeader("Access-Control-Allow-Origin", origin);
             response.setHeader("Vary", "Origin");
             response.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type");
-            response.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+            response.setHeader("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");
             response.setHeader("Access-Control-Max-Age", "600");
         }
         if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {

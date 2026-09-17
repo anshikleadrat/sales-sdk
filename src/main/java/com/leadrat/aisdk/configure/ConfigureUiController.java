@@ -23,6 +23,11 @@ public class ConfigureUiController {
         return "ai-sdk/auth";
     }
 
+    @GetMapping("/settings")
+    public String settings() {
+        return "ai-sdk/settings";
+    }
+
     @GetMapping("/configure")
     public String configure() {
         return "ai-sdk/configure";

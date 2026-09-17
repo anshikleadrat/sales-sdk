@@ -14,6 +14,7 @@
 
     <div class="steps">
         <a th:href="@{/ai-sdk/auth}">Already set up? Get a token<span>Sign in with the admin password</span></a>
+        <a th:href="@{/ai-sdk/settings}">Keys and models<span>Paste the OpenRouter key — no env var needed</span></a>
         <a th:href="@{/ai-sdk/configure}">Configure schema<span>Choose entities, fields and guardrails</span></a>
         <a th:href="@{/ai-sdk/meetings}">Connect Google<span>Generate meeting links and capture discussions</span></a>
         <a th:href="@{/ai-sdk/console}">Query console<span>Ask a question about your records</span></a>
@@ -112,7 +113,7 @@
             googleBadge.className = 'badge ' + (status.googleConnected ? 'on' : 'off');
             document.getElementById('google-connect').disabled = !status.googleEnabled;
             if (!status.googleEnabled) {
-                AiSdk.message(googleMsg, 'Google Calendar is off. Set ai-sdk.meeting.google.enabled=true and configure the OAuth client.', 'warn');
+                AiSdk.message(googleMsg, 'Google Calendar needs an OAuth client id and secret — add them on the keys page.', 'warn');
             } else {
                 AiSdk.hide(googleMsg);
             }

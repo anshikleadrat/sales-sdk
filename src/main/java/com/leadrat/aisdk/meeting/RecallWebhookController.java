@@ -38,7 +38,7 @@ public class RecallWebhookController {
 
     @PostMapping
     public ResponseEntity<Map<String, Object>> ingest(@RequestBody String rawBody, HttpServletRequest request) {
-        if (!properties.getMeeting().getRecall().isEnabled()) {
+        if (!properties.getMeeting().getRecall().isActive()) {
             return ResponseEntity.status(503).body(Map.of("error", "disabled"));
         }
         if (!verify(rawBody, header(request, "id"), header(request, "timestamp"), header(request, "signature"))) {
