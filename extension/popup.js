@@ -12,6 +12,33 @@ function hide() {
     msg.className = 'msg';
 }
 
+const copyBtn = document.getElementById('copy-answer');
+let lastAnswer = '';
+
+function renderAnswer(text) {
+    const answer = document.getElementById('answer');
+    lastAnswer = text || '';
+    try {
+        answer.innerHTML = AiSdkMarkdown.render(lastAnswer);
+        answer.className = 'answer answer-md';
+    } catch (e) {
+        answer.textContent = lastAnswer;
+        answer.className = 'answer';
+    }
+    copyBtn.className = lastAnswer ? 'secondary' : 'secondary hidden';
+    copyBtn.textContent = 'Copy';
+}
+
+copyBtn.addEventListener('click', async () => {
+    try {
+        await navigator.clipboard.writeText(lastAnswer);
+        copyBtn.textContent = 'Copied';
+    } catch (e) {
+        copyBtn.textContent = 'Failed';
+    }
+    setTimeout(() => { copyBtn.textContent = 'Copy'; }, 1500);
+});
+
 function send(message) {
     return chrome.runtime.sendMessage(message);
 }
@@ -124,9 +151,7 @@ document.getElementById('run').addEventListener('click', async () => {
         if (result.needsAuth) return showAuth(result.error);
         return show(result.error, 'err');
     }
-    const answer = document.getElementById('answer');
-    answer.textContent = result.body.answer;
-    answer.classList.remove('hidden');
+    renderAnswer(result.body.answer);
     const records = document.getElementById('records');
     records.querySelector('pre').textContent = JSON.stringify(result.body.data, null, 2);
     records.classList.remove('hidden');
