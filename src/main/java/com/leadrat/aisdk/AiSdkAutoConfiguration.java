@@ -399,7 +399,8 @@ public class AiSdkAutoConfiguration {
     }
 
     @Bean
-    public ApplicationRunner aiSdkStartupRunner(SchemaIntrospector introspector, LicenseValidator licenseValidator,
+    public ApplicationRunner aiSdkStartupRunner(AiSdkProperties properties, SchemaIntrospector introspector,
+                                                LicenseValidator licenseValidator,
                                                 SdkCredentials credentials, PasswordStore passwordStore,
                                                 MeetingReconciler meetingReconciler, AiSdkSettings settings) {
         return args -> {
@@ -408,6 +409,7 @@ public class AiSdkAutoConfiguration {
             } catch (RuntimeException e) {
                 log.warn("ai-sdk: startup introspection failed ({})", e.toString());
             }
+            syncConfiguredPassword(properties, passwordStore);
             announceSetup(credentials, passwordStore);
             announceMissing(settings);
             meetingReconciler.start();
@@ -420,6 +422,18 @@ public class AiSdkAutoConfiguration {
             log.warn("ai-sdk: no LLM API key yet — open /ai-sdk/settings and paste an OpenRouter key, "
                     + "or set OPENROUTER_API_KEY in the host application. Everything else is already configured.");
         }
+    }
+
+    private void syncConfiguredPassword(AiSdkProperties properties, PasswordStore passwordStore) {
+        String configured = properties.getSecurity().getAdminPassword();
+        if (configured == null || configured.isBlank()) {
+            return;
+        }
+        if (configured.length() < 12) {
+            log.warn("ai-sdk: ai-sdk.security.admin-password must be at least 12 characters — ignoring it");
+            return;
+        }
+        passwordStore.ensurePassword(configured);
     }
 
     private void announceSetup(SdkCredentials credentials, PasswordStore passwordStore) {
