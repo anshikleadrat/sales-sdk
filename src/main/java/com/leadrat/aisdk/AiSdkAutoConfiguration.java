@@ -49,6 +49,14 @@ import com.leadrat.aisdk.security.PasswordStore;
 import com.leadrat.aisdk.security.SdkCredentials;
 import com.leadrat.aisdk.security.SecretStore;
 import com.leadrat.aisdk.security.SetupController;
+import com.leadrat.aisdk.whatsapp.EngagetoClient;
+import com.leadrat.aisdk.whatsapp.EngagetoHttp;
+import com.leadrat.aisdk.whatsapp.LeadPhoneResolver;
+import com.leadrat.aisdk.whatsapp.WhatsappChatService;
+import com.leadrat.aisdk.whatsapp.WhatsappContextProvider;
+import com.leadrat.aisdk.whatsapp.WhatsappController;
+import com.leadrat.aisdk.whatsapp.WhatsappPayloadMapper;
+import com.leadrat.aisdk.whatsapp.WhatsappStore;
 import jakarta.persistence.EntityManagerFactory;
 import javax.sql.DataSource;
 import org.slf4j.Logger;
@@ -211,9 +219,10 @@ public class AiSdkAutoConfiguration {
     public QueryController aiSdkQueryController(AiSdkProperties properties, SchemaCatalog catalog, QueryPlanner planner,
                                                 QueryPlanValidator validator, TraversalEngine traversalEngine,
                                                 Summarizer summarizer, QueryCache cache, RateLimiter rateLimiter,
-                                                AuditLogService auditLog, MeetingDiscussionProvider discussionProvider) {
+                                                AuditLogService auditLog, MeetingDiscussionProvider discussionProvider,
+                                                WhatsappContextProvider whatsappProvider) {
         return new QueryController(properties, catalog, planner, validator, traversalEngine, summarizer, cache,
-                rateLimiter, auditLog, discussionProvider);
+                rateLimiter, auditLog, discussionProvider, whatsappProvider);
     }
 
     @Bean
@@ -286,6 +295,53 @@ public class AiSdkAutoConfiguration {
     @Bean
     public MeetingDiscussionProvider aiSdkMeetingDiscussionProvider(AiSdkProperties properties, MeetingStore meetingStore) {
         return new MeetingDiscussionProvider(properties, meetingStore);
+    }
+
+    @Bean
+    public EngagetoHttp aiSdkEngagetoHttp(AiSdkProperties properties, ObjectMapper objectMapper) {
+        return new EngagetoHttp(properties, objectMapper);
+    }
+
+    @Bean
+    public EngagetoClient aiSdkEngagetoClient(EngagetoHttp http, AiSdkProperties properties) {
+        return new EngagetoClient(http, properties);
+    }
+
+    @Bean
+    public WhatsappPayloadMapper aiSdkWhatsappPayloadMapper() {
+        return new WhatsappPayloadMapper();
+    }
+
+    @Bean
+    public WhatsappStore aiSdkWhatsappStore(SqliteStore store) {
+        return new WhatsappStore(store.jdbc());
+    }
+
+    @Bean
+    public WhatsappChatService aiSdkWhatsappChatService(EngagetoClient client, EngagetoHttp http,
+                                                        WhatsappPayloadMapper mapper, WhatsappStore store,
+                                                        AiSdkProperties properties) {
+        return new WhatsappChatService(client, http, mapper, store, properties);
+    }
+
+    @Bean
+    public LeadPhoneResolver aiSdkLeadPhoneResolver(AiSdkProperties properties) {
+        return new LeadPhoneResolver(properties);
+    }
+
+    @Bean
+    public WhatsappContextProvider aiSdkWhatsappContextProvider(AiSdkProperties properties,
+                                                                WhatsappChatService chatService,
+                                                                LeadPhoneResolver phoneResolver,
+                                                                WhatsappStore store) {
+        return new WhatsappContextProvider(properties, chatService, phoneResolver, store);
+    }
+
+    @Bean
+    public WhatsappController aiSdkWhatsappController(AiSdkProperties properties, EngagetoHttp http,
+                                                       EngagetoClient client, WhatsappChatService chatService,
+                                                       LeadPhoneResolver phoneResolver) {
+        return new WhatsappController(properties, http, client, chatService, phoneResolver);
     }
 
     @Bean

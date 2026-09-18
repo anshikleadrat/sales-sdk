@@ -19,6 +19,7 @@ public class AiSdkProperties {
     private Query query = new Query();
     private License license = new License();
     private Meeting meeting = new Meeting();
+    private Whatsapp whatsapp = new Whatsapp();
 
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
@@ -34,6 +35,8 @@ public class AiSdkProperties {
     public void setLicense(License license) { this.license = license; }
     public Meeting getMeeting() { return meeting; }
     public void setMeeting(Meeting meeting) { this.meeting = meeting; }
+    public Whatsapp getWhatsapp() { return whatsapp; }
+    public void setWhatsapp(Whatsapp whatsapp) { this.whatsapp = whatsapp; }
 
     public static class Security {
         private String otp;
@@ -224,5 +227,43 @@ public class AiSdkProperties {
         public void setDirectBotWindowMinutes(int directBotWindowMinutes) { this.directBotWindowMinutes = directBotWindowMinutes; }
         public int getReconcileSeconds() { return reconcileSeconds; }
         public void setReconcileSeconds(int reconcileSeconds) { this.reconcileSeconds = reconcileSeconds; }
+    }
+
+    public static class Whatsapp {
+        private Boolean enabled;
+        private String baseUrl = "https://connect.engageto.in";
+        private String apiKey = "";
+        private int pageSize = 50;
+        private int maxPages = 2;
+        private int maxMessagesPerLead = 60;
+        private int chatCharLimit = 6000;
+        private int cacheTtlMinutes = 10;
+        private String inboundStatuses = "3,6";
+        private String phoneFields = "mobile,mobileNumber,phone,phoneNumber,contactNo,contactNumber";
+        private String defaultCountryCode = "91";
+
+        public boolean isActive() { return enabled != null ? enabled : hasText(apiKey); }
+        public Boolean getEnabled() { return enabled; }
+        public void setEnabled(Boolean enabled) { this.enabled = enabled; }
+        public String getBaseUrl() { return baseUrl; }
+        public void setBaseUrl(String baseUrl) { this.baseUrl = baseUrl; }
+        public String getApiKey() { return apiKey; }
+        public void setApiKey(String apiKey) { this.apiKey = apiKey; }
+        public int getPageSize() { return pageSize; }
+        public void setPageSize(int pageSize) { this.pageSize = pageSize; }
+        public int getMaxPages() { return maxPages; }
+        public void setMaxPages(int maxPages) { this.maxPages = maxPages; }
+        public int getMaxMessagesPerLead() { return maxMessagesPerLead; }
+        public void setMaxMessagesPerLead(int maxMessagesPerLead) { this.maxMessagesPerLead = maxMessagesPerLead; }
+        public int getChatCharLimit() { return chatCharLimit; }
+        public void setChatCharLimit(int chatCharLimit) { this.chatCharLimit = chatCharLimit; }
+        public int getCacheTtlMinutes() { return cacheTtlMinutes; }
+        public void setCacheTtlMinutes(int cacheTtlMinutes) { this.cacheTtlMinutes = cacheTtlMinutes; }
+        public String getInboundStatuses() { return inboundStatuses; }
+        public void setInboundStatuses(String inboundStatuses) { this.inboundStatuses = inboundStatuses; }
+        public String getPhoneFields() { return phoneFields; }
+        public void setPhoneFields(String phoneFields) { this.phoneFields = phoneFields; }
+        public String getDefaultCountryCode() { return defaultCountryCode; }
+        public void setDefaultCountryCode(String defaultCountryCode) { this.defaultCountryCode = defaultCountryCode; }
     }
 }

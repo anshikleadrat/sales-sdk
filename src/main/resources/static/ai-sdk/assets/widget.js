@@ -78,7 +78,7 @@
             meetingMinutes: data.aiSdkMeetingMinutes ? Number(data.aiSdkMeetingMinutes) : null
         };
         if (data.aiSdkEntity && data.aiSdkId) {
-            config.targets = [{ entity: data.aiSdkEntity, id: data.aiSdkId }];
+            config.targets = [{ entity: data.aiSdkEntity, id: data.aiSdkId, phone: data.aiSdkPhone || null }];
         }
         if (data.aiSdkSuggestions) {
             config.suggestions = data.aiSdkSuggestions.split('|').map(s => s.trim()).filter(Boolean);
@@ -95,7 +95,7 @@
 
     function scanDomTargets() {
         return Array.from(document.querySelectorAll('[data-ai-sdk-entity][data-ai-sdk-id]'))
-            .map(el => ({ entity: el.dataset.aiSdkEntity, id: el.dataset.aiSdkId }))
+            .map(el => ({ entity: el.dataset.aiSdkEntity, id: el.dataset.aiSdkId, phone: el.dataset.aiSdkPhone || null }))
             .filter(t => t.entity && t.id);
     }
 
