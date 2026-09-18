@@ -6,7 +6,7 @@
 
     <groupId>com.leadrat</groupId>
     <artifactId>ai-query-sdk</artifactId>
-    <version>1.2.0</version>
+    <version>1.3.0</version>
     <packaging>jar</packaging>
     <name>ai-query-sdk</name>
     <description>Embeddable natural-language query SDK over a host Spring Boot application's JPA model</description>

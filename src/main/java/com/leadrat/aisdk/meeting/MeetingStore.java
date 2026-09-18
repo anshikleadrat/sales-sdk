@@ -14,10 +14,11 @@ import java.util.Optional;
 public class MeetingStore {
 
     private static final String COLUMNS = """
-            id, lead_entity, lead_id, title, agenda, scheduled_at, duration_minutes, meeting_link,
-            conference_id, calendar_event_id, calendar_ical_uid, calendar_sync_status, calendar_sync_error,
-            calendar_synced_at, recall_calendar_event_id, recall_bot_id, recall_bot_status,
-            recall_scheduled_at, recall_error, status, created_at, updated_at""";
+            id, lead_entity, lead_id, title, agenda, scheduled_at, duration_minutes, timezone, attendees,
+            reminder_minutes, external_ref, meeting_link, conference_id, calendar_event_id, calendar_ical_uid,
+            calendar_sync_status, calendar_sync_error, calendar_synced_at, recall_calendar_event_id,
+            recall_bot_id, recall_bot_status, recall_scheduled_at, recall_error, status, created_at,
+            updated_at""";
 
     private final JdbcTemplate jdbc;
     private final ObjectMapper objectMapper;
@@ -36,6 +37,10 @@ public class MeetingStore {
         meeting.setAgenda(rs.getString("agenda"));
         meeting.setScheduledAt(instant(rs, "scheduled_at"));
         meeting.setDurationMinutes(rs.getInt("duration_minutes"));
+        meeting.setTimezone(rs.getString("timezone"));
+        meeting.setAttendees(readAttendees(rs.getString("attendees")));
+        meeting.setReminderMinutes(readIntList(rs.getString("reminder_minutes")));
+        meeting.setExternalRef(rs.getString("external_ref"));
         meeting.setMeetingLink(rs.getString("meeting_link"));
         meeting.setConferenceId(rs.getString("conference_id"));
         meeting.setCalendarEventId(rs.getString("calendar_event_id"));
@@ -61,10 +66,11 @@ public class MeetingStore {
         }
         jdbc.update("""
                 INSERT INTO meeting (id, lead_entity, lead_id, title, agenda, scheduled_at, duration_minutes,
+                    timezone, attendees, reminder_minutes, external_ref,
                     meeting_link, conference_id, calendar_event_id, calendar_ical_uid, calendar_sync_status,
                     calendar_sync_error, calendar_synced_at, recall_calendar_event_id, recall_bot_id,
                     recall_bot_status, recall_scheduled_at, recall_error, status, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(id) DO UPDATE SET
                     lead_entity = excluded.lead_entity,
                     lead_id = excluded.lead_id,
@@ -72,6 +78,10 @@ public class MeetingStore {
                     agenda = excluded.agenda,
                     scheduled_at = excluded.scheduled_at,
                     duration_minutes = excluded.duration_minutes,
+                    timezone = excluded.timezone,
+                    attendees = excluded.attendees,
+                    reminder_minutes = excluded.reminder_minutes,
+                    external_ref = excluded.external_ref,
                     meeting_link = excluded.meeting_link,
                     conference_id = excluded.conference_id,
                     calendar_event_id = excluded.calendar_event_id,
@@ -88,6 +98,8 @@ public class MeetingStore {
                     updated_at = excluded.updated_at""",
                 meeting.getId(), meeting.getLeadEntity(), meeting.getLeadId(), meeting.getTitle(),
                 meeting.getAgenda(), text(meeting.getScheduledAt()), meeting.getDurationMinutes(),
+                meeting.getTimezone(), writeJson(meeting.getAttendees()), writeJson(meeting.getReminderMinutes()),
+                meeting.getExternalRef(),
                 meeting.getMeetingLink(), meeting.getConferenceId(), meeting.getCalendarEventId(),
                 meeting.getCalendarIcalUid(), meeting.getCalendarSyncStatus(), meeting.getCalendarSyncError(),
                 text(meeting.getCalendarSyncedAt()), meeting.getRecallCalendarEventId(), meeting.getRecallBotId(),
@@ -203,6 +215,30 @@ public class MeetingStore {
             return objectMapper.writeValueAsString(value);
         } catch (RuntimeException e) {
             return null;
+        }
+    }
+
+    private List<Attendee> readAttendees(String json) {
+        if (json == null || json.isBlank()) {
+            return List.of();
+        }
+        try {
+            return objectMapper.readValue(json, objectMapper.getTypeFactory()
+                    .constructCollectionType(List.class, Attendee.class));
+        } catch (RuntimeException e) {
+            return List.of();
+        }
+    }
+
+    private List<Integer> readIntList(String json) {
+        if (json == null || json.isBlank()) {
+            return List.of();
+        }
+        try {
+            return objectMapper.readValue(json, objectMapper.getTypeFactory()
+                    .constructCollectionType(List.class, Integer.class));
+        } catch (RuntimeException e) {
+            return List.of();
         }
     }
 

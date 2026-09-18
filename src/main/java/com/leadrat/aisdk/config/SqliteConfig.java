@@ -194,6 +194,23 @@ public class SqliteConfig {
                 version INTEGER NOT NULL
             )""");
         jdbc.update("INSERT OR IGNORE INTO config_meta (id, version) VALUES (1, 1)");
+        migrateMeetingColumns(jdbc);
+    }
+
+    private static void migrateMeetingColumns(JdbcTemplate jdbc) {
+        Set<String> existing = jdbc.query("PRAGMA table_info(meeting)",
+                        (rs, rowNum) -> rs.getString("name"))
+                .stream().map(String::toLowerCase).collect(java.util.stream.Collectors.toSet());
+        addColumnIfMissing(jdbc, existing, "timezone", "TEXT");
+        addColumnIfMissing(jdbc, existing, "attendees", "TEXT");
+        addColumnIfMissing(jdbc, existing, "reminder_minutes", "TEXT");
+        addColumnIfMissing(jdbc, existing, "external_ref", "TEXT");
+    }
+
+    private static void addColumnIfMissing(JdbcTemplate jdbc, Set<String> existing, String column, String type) {
+        if (!existing.contains(column)) {
+            jdbc.execute("ALTER TABLE meeting ADD COLUMN " + column + " " + type);
+        }
     }
 
     private static Path resolve(AiSdkProperties properties) {

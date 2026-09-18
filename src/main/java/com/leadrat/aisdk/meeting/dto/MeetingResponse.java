@@ -1,8 +1,10 @@
 package com.leadrat.aisdk.meeting.dto;
 
+import com.leadrat.aisdk.meeting.Attendee;
 import com.leadrat.aisdk.meeting.Meeting;
 
 import java.time.Instant;
+import java.util.List;
 
 public record MeetingResponse(
         String id,
@@ -12,6 +14,10 @@ public record MeetingResponse(
         String agenda,
         Instant scheduledAt,
         int durationMinutes,
+        String timezone,
+        List<Attendee> attendees,
+        List<Integer> reminderMinutes,
+        String externalRef,
         String meetingLink,
         String status,
         String calendarSyncStatus,
@@ -23,8 +29,9 @@ public record MeetingResponse(
     public static MeetingResponse from(Meeting meeting) {
         return new MeetingResponse(meeting.getId(), meeting.getLeadEntity(), meeting.getLeadId(),
                 meeting.getTitle(), meeting.getAgenda(), meeting.getScheduledAt(), meeting.getDurationMinutes(),
-                meeting.getMeetingLink(), meeting.getStatus(), meeting.getCalendarSyncStatus(),
-                meeting.getCalendarSyncError(), meeting.getRecallBotStatus(), meeting.getRecallError(),
-                meeting.getCreatedAt());
+                meeting.getTimezone(), meeting.getAttendees(), meeting.getReminderMinutes(),
+                meeting.getExternalRef(), meeting.getMeetingLink(), meeting.getStatus(),
+                meeting.getCalendarSyncStatus(), meeting.getCalendarSyncError(), meeting.getRecallBotStatus(),
+                meeting.getRecallError(), meeting.getCreatedAt());
     }
 }

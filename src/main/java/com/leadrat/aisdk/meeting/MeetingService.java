@@ -58,6 +58,10 @@ public class MeetingService {
         if (request.durationMinutes() != null && request.durationMinutes() > 0) {
             meeting.setDurationMinutes(request.durationMinutes());
         }
+        meeting.setTimezone(request.timezone());
+        meeting.setAttendees(request.attendees());
+        meeting.setReminderMinutes(request.reminderMinutes());
+        meeting.setExternalRef(request.externalRef());
         meeting.setStatus(MeetingStatus.SCHEDULED);
         meeting.setCalendarSyncStatus("PENDING");
         meetingStore.save(meeting);
@@ -88,6 +92,15 @@ public class MeetingService {
         }
         if (request.durationMinutes() != null && request.durationMinutes() > 0) {
             meeting.setDurationMinutes(request.durationMinutes());
+        }
+        if (request.timezone() != null) {
+            meeting.setTimezone(request.timezone());
+        }
+        if (request.attendees() != null) {
+            meeting.setAttendees(request.attendees());
+        }
+        if (request.reminderMinutes() != null) {
+            meeting.setReminderMinutes(request.reminderMinutes());
         }
         meetingStore.save(meeting);
         if (meeting.getCalendarEventId() != null) {

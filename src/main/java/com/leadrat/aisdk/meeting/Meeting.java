@@ -1,6 +1,7 @@
 package com.leadrat.aisdk.meeting;
 
 import java.time.Instant;
+import java.util.List;
 
 public class Meeting {
 
@@ -11,6 +12,10 @@ public class Meeting {
     private String agenda;
     private Instant scheduledAt;
     private int durationMinutes = 60;
+    private String timezone;
+    private List<Attendee> attendees = List.of();
+    private List<Integer> reminderMinutes = List.of();
+    private String externalRef;
     private String meetingLink;
     private String conferenceId;
     private String calendarEventId;
@@ -41,6 +46,16 @@ public class Meeting {
     public void setScheduledAt(Instant scheduledAt) { this.scheduledAt = scheduledAt; }
     public int getDurationMinutes() { return durationMinutes; }
     public void setDurationMinutes(int durationMinutes) { this.durationMinutes = durationMinutes; }
+    public String getTimezone() { return timezone; }
+    public void setTimezone(String timezone) { this.timezone = timezone; }
+    public List<Attendee> getAttendees() { return attendees; }
+    public void setAttendees(List<Attendee> attendees) { this.attendees = attendees == null ? List.of() : attendees; }
+    public List<Integer> getReminderMinutes() { return reminderMinutes; }
+    public void setReminderMinutes(List<Integer> reminderMinutes) {
+        this.reminderMinutes = reminderMinutes == null ? List.of() : reminderMinutes;
+    }
+    public String getExternalRef() { return externalRef; }
+    public void setExternalRef(String externalRef) { this.externalRef = externalRef; }
     public String getMeetingLink() { return meetingLink; }
     public void setMeetingLink(String meetingLink) { this.meetingLink = meetingLink; }
     public String getConferenceId() { return conferenceId; }

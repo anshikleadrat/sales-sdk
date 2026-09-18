@@ -6,8 +6,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.web.client.RestClient;
 
 import java.time.Instant;
-import java.time.ZoneOffset;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -48,7 +50,7 @@ public class GoogleCalendarClient {
             @SuppressWarnings("unchecked")
             Map<String, Object> response = RestClient.create()
                     .post()
-                    .uri(EVENTS + "?conferenceDataVersion=1")
+                    .uri(EVENTS + "?conferenceDataVersion=1&sendUpdates=all")
                     .header("Authorization", "Bearer " + tokenStore.accessToken())
                     .body(eventBody(meeting))
                     .retrieve()
@@ -68,7 +70,7 @@ public class GoogleCalendarClient {
             @SuppressWarnings("unchecked")
             Map<String, Object> response = RestClient.create()
                     .patch()
-                    .uri(EVENTS + "/{id}?conferenceDataVersion=1", meeting.getCalendarEventId())
+                    .uri(EVENTS + "/{id}?conferenceDataVersion=1&sendUpdates=all", meeting.getCalendarEventId())
                     .header("Authorization", "Bearer " + tokenStore.accessToken())
                     .body(eventBody(meeting))
                     .retrieve()
@@ -129,19 +131,57 @@ public class GoogleCalendarClient {
     }
 
     private Map<String, Object> eventBody(Meeting meeting) {
-        DateTimeFormatter fmt = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
-        String start = meeting.getScheduledAt().atOffset(ZoneOffset.UTC).format(fmt);
+        String timezone = meeting.getTimezone() == null || meeting.getTimezone().isBlank()
+                ? "UTC" : meeting.getTimezone();
+        ZoneId zoneId = ZoneId.of(timezone);
+        DateTimeFormatter fmt = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
+        String start = meeting.getScheduledAt().atZone(zoneId).format(fmt);
         String end = meeting.getScheduledAt().plusSeconds(Math.max(15, meeting.getDurationMinutes()) * 60L)
-                .atOffset(ZoneOffset.UTC).format(fmt);
-        return Map.of(
-                "summary", meeting.getTitle() == null || meeting.getTitle().isBlank()
-                        ? "Meeting" : meeting.getTitle(),
-                "description", meeting.getAgenda() == null ? "" : meeting.getAgenda(),
-                "start", Map.of("dateTime", start),
-                "end", Map.of("dateTime", end),
-                "conferenceData", Map.of("createRequest", Map.of(
-                        "requestId", meeting.getId(),
-                        "conferenceSolutionKey", Map.of("type", "hangoutsMeet"))));
+                .atZone(zoneId).format(fmt);
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("summary", meeting.getTitle() == null || meeting.getTitle().isBlank()
+                ? "Meeting" : meeting.getTitle());
+        body.put("description", meeting.getAgenda() == null ? "" : meeting.getAgenda());
+        body.put("start", Map.of("dateTime", start, "timeZone", timezone));
+        body.put("end", Map.of("dateTime", end, "timeZone", timezone));
+        body.put("conferenceData", Map.of("createRequest", Map.of(
+                "requestId", meeting.getId(),
+                "conferenceSolutionKey", Map.of("type", "hangoutsMeet"))));
+        body.put("guestsCanModify", false);
+
+        List<Map<String, Object>> attendees = new ArrayList<>();
+        for (Attendee attendee : meeting.getAttendees()) {
+            if (attendee.email() == null || attendee.email().isBlank()) {
+                continue;
+            }
+            Map<String, Object> entry = new LinkedHashMap<>();
+            entry.put("email", attendee.email());
+            if (attendee.displayName() != null && !attendee.displayName().isBlank()) {
+                entry.put("displayName", attendee.displayName());
+            }
+            entry.put("optional", attendee.optional());
+            attendees.add(entry);
+        }
+        if (!attendees.isEmpty()) {
+            body.put("attendees", attendees);
+        }
+
+        List<Integer> minutes = meeting.getReminderMinutes();
+        if (minutes != null && !minutes.isEmpty()) {
+            List<Map<String, Object>> overrides = new ArrayList<>();
+            for (Integer minute : minutes) {
+                if (minute == null || minute < 0) {
+                    continue;
+                }
+                overrides.add(Map.of("method", "email", "minutes", minute));
+                overrides.add(Map.of("method", "popup", "minutes", minute));
+            }
+            if (!overrides.isEmpty()) {
+                body.put("reminders", Map.of("useDefault", false, "overrides", overrides));
+            }
+        }
+        return body;
     }
 
     private String trim(String s) {
