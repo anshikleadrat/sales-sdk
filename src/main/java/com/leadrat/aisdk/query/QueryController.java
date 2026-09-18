@@ -111,6 +111,9 @@ public class QueryController {
         for (int i = 0; i < results.size(); i++) {
             TraversalResult result = results.get(i);
             String targetPhone = request.targets().get(i).phone();
+            if (targetPhone == null || targetPhone.isBlank()) {
+                targetPhone = result.phone();
+            }
             Map<String, Object> node = new LinkedHashMap<>();
             node.put("self", result.self());
             node.put("parents", result.parents());

@@ -59,14 +59,33 @@ public class TraversalEngine {
         }
         Object root = em.find(metadata.javaType(), id);
         if (root == null) {
-            return new TraversalResult(metadata.entityName(), target.id(), Map.of(), List.of(), List.of());
+            return new TraversalResult(metadata.entityName(), target.id(), Map.of(), List.of(), List.of(), null);
         }
         Set<String> visited = new LinkedHashSet<>();
         visited.add(key(metadata.entityName(), id));
         List<TraversalResult.ParentNode> parents = walkParents(em, root, metadata, plan, plan.parentDepth(), 1, "", visited);
         List<TraversalResult.ChildGroup> children = walkChildren(em, root, metadata, plan, plan.childDepth());
         return new TraversalResult(metadata.entityName(), String.valueOf(id),
-                serializer.serialize(root, metadata), parents, children);
+                serializer.serialize(root, metadata), parents, children, rawPhone(root));
+    }
+
+    private String rawPhone(Object root) {
+        for (String field : properties.getWhatsapp().getPhoneFields().split(",")) {
+            String name = field.trim();
+            if (name.isEmpty()) {
+                continue;
+            }
+            Object value;
+            try {
+                value = serializer.read(root, name);
+            } catch (RuntimeException e) {
+                continue;
+            }
+            if (value != null && !String.valueOf(value).isBlank()) {
+                return String.valueOf(value);
+            }
+        }
+        return null;
     }
 
     private List<TraversalResult.ParentNode> walkParents(EntityManager em, Object entity, EntityMetadata metadata,

@@ -7,7 +7,8 @@ public record TraversalResult(String entity,
                               String id,
                               Map<String, Object> self,
                               List<ParentNode> parents,
-                              List<ChildGroup> children) {
+                              List<ChildGroup> children,
+                              String phone) {
 
     public record ParentNode(int level, String relation, String entity, Map<String, Object> data) {}
 
