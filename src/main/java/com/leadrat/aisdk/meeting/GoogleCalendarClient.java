@@ -174,8 +174,12 @@ public class GoogleCalendarClient {
                 if (minute == null || minute < 0) {
                     continue;
                 }
-                overrides.add(Map.of("method", "email", "minutes", minute));
-                overrides.add(Map.of("method", "popup", "minutes", minute));
+                if (overrides.size() < 5) {
+                    overrides.add(Map.of("method", "email", "minutes", minute));
+                }
+                if (overrides.size() < 5) {
+                    overrides.add(Map.of("method", "popup", "minutes", minute));
+                }
             }
             if (!overrides.isEmpty()) {
                 body.put("reminders", Map.of("useDefault", false, "overrides", overrides));
