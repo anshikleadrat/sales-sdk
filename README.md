@@ -35,8 +35,8 @@ Start the app and follow the pages in order:
 
 | | Page | What you do |
 |---|---|---|
-| 1 | `/ai-sdk/setup` | Exchange the OTP (logged at `WARN` on first start) for an admin password |
-| 2 | `/ai-sdk/auth` | Get a JWT |
+| 1 | `/ai-sdk/setup` | Exchange the OTP (logged at `WARN` on first start) for an admin password — the page is served only until this is done, after which it redirects to sign-in |
+| 2 | `/ai-sdk/auth` | Sign in with that password; the session is kept in the browser until it expires |
 | 3 | `/ai-sdk/settings` | Paste the OpenRouter key, pick the models |
 | 4 | `/ai-sdk/configure` | Choose entities, fields, relationships, guardrails |
 | 5 | `/ai-sdk/meetings` | Optional — connect one Google account |

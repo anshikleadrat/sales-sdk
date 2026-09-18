@@ -9,16 +9,8 @@
 <body th:attr="data-base=@{/ai-sdk}">
 <div th:replace="~{ai-sdk/fragments :: topbar}"></div>
 <main>
-    <h1>Step 1 — One-time admin setup</h1>
-    <p class="sub">Exchange the deployment OTP for a permanent admin password. This can only be done once.</p>
-
-    <div class="steps">
-        <a th:href="@{/ai-sdk/auth}">Already set up? Get a token<span>Sign in with the admin password</span></a>
-        <a th:href="@{/ai-sdk/settings}">Keys and models<span>Paste the OpenRouter key — no env var needed</span></a>
-        <a th:href="@{/ai-sdk/configure}">Configure schema<span>Choose entities, fields and guardrails</span></a>
-        <a th:href="@{/ai-sdk/meetings}">Connect Google<span>Generate meeting links and capture discussions</span></a>
-        <a th:href="@{/ai-sdk/console}">Query console<span>Ask a question about your records</span></a>
-    </div>
+    <h1>One-time admin setup</h1>
+    <p class="sub">Exchange the deployment OTP for a permanent admin password. This page disappears once it is done — from then on you simply sign in.</p>
 
     <div class="card">
         <div id="status-msg" class="msg"></div>
@@ -30,27 +22,14 @@
         <input id="confirm" type="password" autocomplete="new-password"/>
         <div class="row" style="margin-top:16px">
             <button id="submit">Complete setup</button>
-            <a th:href="@{/ai-sdk/auth}"><button type="button" class="secondary">Go to token page</button></a>
         </div>
         <div id="msg" class="msg"></div>
-    </div>
-
-    <div class="card">
-        <h2>Google account for meeting links</h2>
-        <p class="sub">Connect one Google account here and the SDK generates every meeting link itself — nobody pastes one in. Needs a token, so complete the steps above first.</p>
-        <div class="row">
-            <button id="google-connect">Connect Google account</button>
-            <a th:href="@{/ai-sdk/meetings}"><button type="button" class="secondary">Open meetings page</button></a>
-            <span id="google-badge" class="badge">checking…</span>
-        </div>
-        <div id="google-msg" class="msg"></div>
     </div>
 
     <div class="card">
         <h2>Deployment status</h2>
         <table>
             <tbody>
-            <tr><td>Setup completed</td><td id="s-setup" class="muted">checking…</td></tr>
             <tr><td>Setup OTP configured</td><td id="s-otp" class="muted">checking…</td></tr>
             <tr><td>Dedicated read-only datasource</td><td id="s-ro" class="muted">checking…</td></tr>
             </tbody>
@@ -61,25 +40,33 @@
 <script>
     const msg = document.getElementById('msg');
     const statusMsg = document.getElementById('status-msg');
+    const submit = document.getElementById('submit');
 
     async function loadStatus() {
         try {
             const status = await AiSdk.request('/status');
-            document.getElementById('s-setup').textContent = status.setupCompleted ? 'yes' : 'no';
             document.getElementById('s-otp').textContent = status.otpConfigured ? 'yes' : 'no';
             document.getElementById('s-ro').textContent = status.readOnlyEnforcement ? 'enforced (' + status.readOnlyEnforcement + ')' : 'unknown';
             if (status.setupCompleted) {
-                AiSdk.message(statusMsg, 'Setup is already complete. Continue to the token page to sign in.', 'warn');
-                document.getElementById('submit').disabled = true;
+                window.location.href = AiSdk.base + '/auth';
+                return;
+            }
+            if (!status.otpConfigured) {
+                AiSdk.message(statusMsg, 'No setup OTP is configured for this deployment, so setup cannot be completed.', 'err');
+                submit.disabled = true;
             }
         } catch (e) {
             AiSdk.message(statusMsg, e.message, 'err');
         }
     }
 
-    document.getElementById('submit').addEventListener('click', async () => {
+    submit.addEventListener('click', async () => {
         AiSdk.hide(msg);
         const password = document.getElementById('password').value;
+        if (password.length < 12) {
+            AiSdk.message(msg, 'Password must be at least 12 characters', 'err');
+            return;
+        }
         if (password !== document.getElementById('confirm').value) {
             AiSdk.message(msg, 'Passwords do not match', 'err');
             return;
@@ -89,53 +76,15 @@
                 method: 'POST',
                 body: JSON.stringify({ otp: document.getElementById('otp').value, password })
             });
-            AiSdk.message(msg, 'Setup complete. Continue to the token page.', 'ok');
-            document.getElementById('submit').disabled = true;
+            submit.disabled = true;
+            AiSdk.message(msg, 'Setup complete. Taking you to the sign-in page…', 'ok');
+            setTimeout(() => { window.location.href = AiSdk.base + '/auth'; }, 800);
         } catch (e) {
             AiSdk.message(msg, e.message, 'err');
         }
     });
 
-    const googleMsg = document.getElementById('google-msg');
-    const googleBadge = document.getElementById('google-badge');
-
-    async function loadGoogle() {
-        if (!AiSdk.token()) {
-            googleBadge.textContent = 'token needed';
-            googleBadge.className = 'badge off';
-            AiSdk.message(googleMsg, 'Complete setup, then get a token on step 2 to connect Google.', 'warn');
-            document.getElementById('google-connect').disabled = true;
-            return;
-        }
-        try {
-            const status = await AiSdk.request('/meetings/status');
-            googleBadge.textContent = status.googleConnected ? 'connected as ' + status.googleEmail : 'not connected';
-            googleBadge.className = 'badge ' + (status.googleConnected ? 'on' : 'off');
-            document.getElementById('google-connect').disabled = !status.googleEnabled;
-            if (!status.googleEnabled) {
-                AiSdk.message(googleMsg, 'Google Calendar needs an OAuth client id and secret — add them on the keys page.', 'warn');
-            } else {
-                AiSdk.hide(googleMsg);
-            }
-        } catch (e) {
-            googleBadge.textContent = 'unknown';
-            googleBadge.className = 'badge off';
-            AiSdk.message(googleMsg, e.message, 'err');
-        }
-    }
-
-    document.getElementById('google-connect').addEventListener('click', async () => {
-        AiSdk.hide(googleMsg);
-        try {
-            const result = await AiSdk.request('/meetings/google/connect');
-            window.location.href = result.url;
-        } catch (e) {
-            AiSdk.message(googleMsg, e.message, 'err');
-        }
-    });
-
     loadStatus();
-    loadGoogle();
 </script>
 </body>
 </html>

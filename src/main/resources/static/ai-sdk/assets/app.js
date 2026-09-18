@@ -1,19 +1,66 @@
 const AiSdk = (() => {
     const TOKEN_KEY = 'aiSdkToken';
+    const EXPIRY_KEY = 'aiSdkTokenExpiresAt';
     const base = document.body.dataset.base || '/ai-sdk';
 
-    function token() {
-        try { return sessionStorage.getItem(TOKEN_KEY); } catch (e) { return null; }
+    function store() {
+        try { return window.localStorage; } catch (e) { return null; }
     }
 
-    function setToken(value) {
-        try { sessionStorage.setItem(TOKEN_KEY, value); } catch (e) { }
+    function token() {
+        const s = store();
+        if (!s) return null;
+        try {
+            const value = s.getItem(TOKEN_KEY);
+            if (!value) return null;
+            const expiresAt = Number(s.getItem(EXPIRY_KEY) || 0);
+            if (expiresAt && Date.now() >= expiresAt) {
+                clearToken();
+                return null;
+            }
+            return value;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function setToken(value, expiresInSeconds) {
+        const s = store();
+        if (s) {
+            try {
+                s.setItem(TOKEN_KEY, value);
+                const seconds = Number(expiresInSeconds);
+                if (seconds > 0) {
+                    s.setItem(EXPIRY_KEY, String(Date.now() + seconds * 1000));
+                } else {
+                    s.removeItem(EXPIRY_KEY);
+                }
+            } catch (e) { }
+        }
         renderAuthBadge();
     }
 
     function clearToken() {
-        try { sessionStorage.removeItem(TOKEN_KEY); } catch (e) { }
+        const s = store();
+        if (s) {
+            try {
+                s.removeItem(TOKEN_KEY);
+                s.removeItem(EXPIRY_KEY);
+            } catch (e) { }
+        }
         renderAuthBadge();
+    }
+
+    function expiresInSeconds() {
+        const s = store();
+        if (!s) return 0;
+        try {
+            const expiresAt = Number(s.getItem(EXPIRY_KEY) || 0);
+            if (!expiresAt) return 0;
+            return Math.max(0, Math.round((expiresAt - Date.now()) / 1000));
+        } catch (e) {
+            return 0;
+        }
     }
 
     async function request(path, options = {}) {
@@ -47,19 +94,24 @@ const AiSdk = (() => {
 
     function renderAuthBadge() {
         const badge = document.getElementById('auth-badge');
+        const signOut = document.getElementById('sign-out');
+        const signedIn = !!token();
+        if (signOut) signOut.style.display = signedIn ? '' : 'none';
         if (!badge) return;
-        if (token()) {
-            badge.textContent = 'Authenticated';
+        if (signedIn) {
+            badge.textContent = 'Signed in';
             badge.className = 'badge on';
         } else {
-            badge.textContent = 'No token';
+            badge.textContent = 'Signed out';
             badge.className = 'badge off';
         }
     }
 
     function requireToken(redirect = true) {
         if (token()) return true;
-        if (redirect) window.location.href = base + '/auth';
+        if (redirect) {
+            window.location.href = base + '/auth?next=' + encodeURIComponent(window.location.pathname);
+        }
         return false;
     }
 
@@ -84,5 +136,5 @@ const AiSdk = (() => {
 
     document.addEventListener('DOMContentLoaded', initNav);
 
-    return { base, token, setToken, clearToken, request, message, hide, requireToken, renderAuthBadge };
+    return { base, token, setToken, clearToken, expiresInSeconds, request, message, hide, requireToken, renderAuthBadge };
 })();

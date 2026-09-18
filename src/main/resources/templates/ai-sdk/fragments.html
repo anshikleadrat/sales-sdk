@@ -4,16 +4,16 @@
 <header class="topbar" th:fragment="topbar">
     <div class="brand">AI Query SDK</div>
     <nav>
-        <a th:href="@{/ai-sdk/setup}">1. Setup</a>
-        <a th:href="@{/ai-sdk/auth}">2. Token</a>
-        <a th:href="@{/ai-sdk/settings}">3. Keys</a>
-        <a th:href="@{/ai-sdk/configure}">4. Configure</a>
-        <a th:href="@{/ai-sdk/meetings}">5. Meetings</a>
-        <a th:href="@{/ai-sdk/console}">6. Query console</a>
-        <a th:href="@{/ai-sdk/embed}">7. Embed</a>
+        <a th:if="${!setupCompleted}" th:href="@{/ai-sdk/setup}">Setup</a>
+        <a th:href="@{/ai-sdk/auth}">Sign in</a>
+        <a th:href="@{/ai-sdk/settings}">Keys</a>
+        <a th:href="@{/ai-sdk/configure}">Configure</a>
+        <a th:href="@{/ai-sdk/meetings}">Meetings</a>
+        <a th:href="@{/ai-sdk/console}">Query console</a>
+        <a th:href="@{/ai-sdk/embed}">Embed</a>
     </nav>
-    <span id="auth-badge" class="badge">No token</span>
-    <button id="sign-out" class="secondary">Sign out</button>
+    <span id="auth-badge" class="badge">Signed out</span>
+    <button id="sign-out" class="secondary" style="display:none">Sign out</button>
 </header>
 </body>
 </html>

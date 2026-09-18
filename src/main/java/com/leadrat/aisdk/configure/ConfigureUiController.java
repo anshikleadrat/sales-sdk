@@ -1,26 +1,39 @@
 package com.leadrat.aisdk.configure;
 
+import com.leadrat.aisdk.security.PasswordStore;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.RequestMapping;
 
 @Controller
 @RequestMapping("/ai-sdk")
 public class ConfigureUiController {
 
+    private final PasswordStore passwordStore;
+
+    public ConfigureUiController(PasswordStore passwordStore) {
+        this.passwordStore = passwordStore;
+    }
+
+    @ModelAttribute("setupCompleted")
+    public boolean setupCompleted() {
+        return passwordStore.isSetupCompleted();
+    }
+
     @GetMapping
     public String index() {
-        return "redirect:/ai-sdk/setup";
+        return passwordStore.isSetupCompleted() ? "redirect:/ai-sdk/auth" : "redirect:/ai-sdk/setup";
     }
 
     @GetMapping("/setup")
     public String setup() {
-        return "ai-sdk/setup";
+        return passwordStore.isSetupCompleted() ? "redirect:/ai-sdk/auth" : "ai-sdk/setup";
     }
 
     @GetMapping("/auth")
     public String auth() {
-        return "ai-sdk/auth";
+        return passwordStore.isSetupCompleted() ? "ai-sdk/auth" : "redirect:/ai-sdk/setup";
     }
 
     @GetMapping("/settings")

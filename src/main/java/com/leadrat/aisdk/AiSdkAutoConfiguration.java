@@ -316,8 +316,8 @@ public class AiSdkAutoConfiguration {
     }
 
     @Bean
-    public ConfigureUiController aiSdkConfigureUiController() {
-        return new ConfigureUiController();
+    public ConfigureUiController aiSdkConfigureUiController(PasswordStore passwordStore) {
+        return new ConfigureUiController(passwordStore);
     }
 
     @Bean
