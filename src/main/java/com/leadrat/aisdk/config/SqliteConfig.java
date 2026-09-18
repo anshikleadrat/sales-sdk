@@ -149,6 +149,32 @@ public class SqliteConfig {
         jdbc.execute("CREATE INDEX IF NOT EXISTS idx_discussion_lead ON meeting_discussion (lead_id, occurred_at DESC)");
         jdbc.execute("CREATE INDEX IF NOT EXISTS idx_discussion_meeting ON meeting_discussion (meeting_id)");
         jdbc.execute("""
+            CREATE TABLE IF NOT EXISTS whatsapp_message (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                phone         TEXT NOT NULL,
+                lead_entity   TEXT,
+                lead_id       TEXT,
+                external_id   TEXT NOT NULL,
+                direction     TEXT NOT NULL,
+                status        INTEGER,
+                sender_name   TEXT,
+                body          TEXT,
+                media_type    TEXT,
+                template_name TEXT,
+                sent_at       TEXT NOT NULL,
+                fetched_at    TEXT NOT NULL,
+                UNIQUE (phone, external_id)
+            )""");
+        jdbc.execute("CREATE INDEX IF NOT EXISTS idx_whatsapp_phone ON whatsapp_message (phone, sent_at DESC)");
+        jdbc.execute("""
+            CREATE TABLE IF NOT EXISTS whatsapp_sync (
+                phone           TEXT PRIMARY KEY,
+                last_fetched_at TEXT NOT NULL,
+                last_message_at TEXT,
+                message_count   INTEGER NOT NULL DEFAULT 0,
+                sync_error      TEXT
+            )""");
+        jdbc.execute("""
             CREATE TABLE IF NOT EXISTS google_credential (
                 id                      INTEGER PRIMARY KEY CHECK (id = 1),
                 google_email            TEXT,

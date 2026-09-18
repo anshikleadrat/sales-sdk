@@ -82,6 +82,10 @@
                 <label>Record ID</label>
                 <input class="t-id" type="text" placeholder="e.g. 42" value="${id}"/>
             </div>
+            <div class="grow">
+                <label>WhatsApp phone <span class="muted" style="font-weight:400">— optional</span></label>
+                <input class="t-phone" type="text" placeholder="e.g. 919002715651"/>
+            </div>
             <div style="align-self:flex-end">
                 <button class="secondary t-remove" type="button">Remove</button>
             </div>`;
@@ -121,7 +125,11 @@
     askBtn.addEventListener('click', async () => {
         AiSdk.hide(msg);
         const targets = Array.from(document.querySelectorAll('.target-row'))
-            .map(row => ({ entity: row.querySelector('.t-entity').value, id: row.querySelector('.t-id').value.trim() }))
+            .map(row => ({
+                entity: row.querySelector('.t-entity').value,
+                id: row.querySelector('.t-id').value.trim(),
+                phone: row.querySelector('.t-phone').value.trim() || null
+            }))
             .filter(t => t.entity && t.id);
         if (targets.length === 0) {
             AiSdk.message(msg, 'Add at least one target with an id.', 'err');

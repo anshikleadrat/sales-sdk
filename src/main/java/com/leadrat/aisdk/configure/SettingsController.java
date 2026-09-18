@@ -68,6 +68,7 @@ public class SettingsController {
         out.put("meetingEnabled", properties.getMeeting().isActive());
         out.put("googleEnabled", google.isActive());
         out.put("recallEnabled", properties.getMeeting().getRecall().isActive());
+        out.put("whatsappEnabled", properties.getWhatsapp().isActive());
         out.put("effectiveRedirectUri", google.getRedirectUri() == null || google.getRedirectUri().isBlank()
                 ? AiSdkUrls.externalBase(request) + GoogleOAuthController.CALLBACK_PATH
                 : google.getRedirectUri());

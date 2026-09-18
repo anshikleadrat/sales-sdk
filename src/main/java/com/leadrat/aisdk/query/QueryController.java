@@ -5,6 +5,7 @@ import com.leadrat.aisdk.config.AiSdkProperties;
 import com.leadrat.aisdk.config.ReadOnlyViolationException;
 import com.leadrat.aisdk.meeting.MeetingDiscussionProvider;
 import com.leadrat.aisdk.security.JwtAuthFilter;
+import com.leadrat.aisdk.whatsapp.WhatsappContextProvider;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -35,11 +36,12 @@ public class QueryController {
     private final RateLimiter rateLimiter;
     private final AuditLogService auditLog;
     private final MeetingDiscussionProvider discussionProvider;
+    private final WhatsappContextProvider whatsappProvider;
 
     public QueryController(AiSdkProperties properties, SchemaCatalog catalog, QueryPlanner planner,
                            QueryPlanValidator validator, TraversalEngine traversalEngine, Summarizer summarizer,
                            QueryCache cache, RateLimiter rateLimiter, AuditLogService auditLog,
-                           MeetingDiscussionProvider discussionProvider) {
+                           MeetingDiscussionProvider discussionProvider, WhatsappContextProvider whatsappProvider) {
         this.properties = properties;
         this.catalog = catalog;
         this.planner = planner;
@@ -50,6 +52,7 @@ public class QueryController {
         this.rateLimiter = rateLimiter;
         this.auditLog = auditLog;
         this.discussionProvider = discussionProvider;
+        this.whatsappProvider = whatsappProvider;
     }
 
     @PostMapping("/query")
@@ -87,9 +90,12 @@ public class QueryController {
         QueryPlan plan = planner.plan(request.question(), catalog.describe(targetEntities), request.targets());
         EffectivePlan effectivePlan = validator.validate(plan, request, targetEntities);
 
-        String cacheKey = cache.key(request, effectivePlan, catalog.configVersion(),
-                discussionProvider.fingerprint(request.targets().stream()
-                        .map(target -> String.valueOf(target.id())).distinct().toList()));
+        String contextFingerprint = discussionProvider.fingerprint(request.targets().stream()
+                        .map(target -> String.valueOf(target.id())).distinct().toList())
+                + "|" + whatsappProvider.fingerprint(request.targets().stream()
+                        .map(QueryRequest.Target::phone).filter(phone -> phone != null && !phone.isBlank())
+                        .distinct().toList());
+        String cacheKey = cache.key(request, effectivePlan, catalog.configVersion(), contextFingerprint);
         QueryResponse cached = cache.get(cacheKey);
         if (cached != null) {
             long latency = System.currentTimeMillis() - started;
@@ -117,7 +123,10 @@ public class QueryController {
         LinkedHashSet<String> entitiesTouched = new LinkedHashSet<>();
         int totalRows = 0;
         boolean hasDiscussions = false;
-        for (TraversalResult result : results) {
+        boolean hasChats = false;
+        for (int i = 0; i < results.size(); i++) {
+            TraversalResult result = results.get(i);
+            String targetPhone = request.targets().get(i).phone();
             Map<String, Object> node = new LinkedHashMap<>();
             node.put("self", result.self());
             node.put("parents", result.parents());
@@ -127,6 +136,13 @@ public class QueryController {
                 node.put("meetingDiscussions", discussions);
                 totalRows += discussions.size();
                 hasDiscussions = true;
+            }
+            List<Map<String, Object>> chats = whatsappProvider.forTarget(result.entity(), result.id(),
+                    targetPhone, result.self());
+            if (!chats.isEmpty()) {
+                node.put("whatsappChats", chats);
+                totalRows += chats.size();
+                hasChats = true;
             }
             data.put(result.entity() + ":" + result.id(), node);
             entitiesTouched.add(result.entity());
@@ -141,7 +157,7 @@ public class QueryController {
         String answer;
         try {
             answer = summarizer.summarize(request.question(), data,
-                    catalog.instructionsFor(new ArrayList<>(entitiesTouched)), hasDiscussions);
+                    catalog.instructionsFor(new ArrayList<>(entitiesTouched)), hasDiscussions, hasChats);
         } catch (RuntimeException e) {
             return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
                     .body(Map.of("error", "summarizer call failed: " + e.getMessage()));

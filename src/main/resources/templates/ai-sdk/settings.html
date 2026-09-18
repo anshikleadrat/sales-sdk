@@ -39,6 +39,12 @@
     </div>
 
     <div class="card">
+        <h2>WhatsApp <span id="whatsapp-badge" class="badge">checking…</span></h2>
+        <p class="sub">Optional. Add the Engageto API key to ground pre-meeting briefings in the lead's own WhatsApp thread.</p>
+        <div id="group-whatsapp"></div>
+    </div>
+
+    <div class="card">
         <h2>Browser access</h2>
         <p class="sub">Only needed when the widget or the extension calls the SDK from another origin. Leave it empty for a same-origin frontend.</p>
         <div id="group-security"></div>
@@ -57,6 +63,8 @@
     const LLM_KEYS = ['llm.provider', 'llm.api-key', 'llm.base-url', 'llm.planner-model', 'llm.summarizer-model', 'llm.timeout-seconds'];
     const MODEL_KEYS = ['llm.planner-model', 'llm.summarizer-model'];
     const SECURITY_KEYS = ['security.allowed-origins'];
+    const WHATSAPP_KEYS = ['whatsapp.api-key', 'whatsapp.base-url', 'whatsapp.phone-fields',
+        'whatsapp.default-country-code', 'whatsapp.inbound-statuses', 'whatsapp.max-messages-per-lead'];
 
     function esc(value) {
         return (value === null || value === undefined) ? '' : String(value)
@@ -78,11 +86,16 @@
         const llm = document.getElementById('group-llm');
         const meeting = document.getElementById('group-meeting');
         const security = document.getElementById('group-security');
+        const whatsapp = document.getElementById('group-whatsapp');
         llm.innerHTML = '';
         meeting.innerHTML = '';
         security.innerHTML = '';
+        whatsapp.innerHTML = '';
         Object.keys(settings).forEach(name => {
-            const target = LLM_KEYS.includes(name) ? llm : SECURITY_KEYS.includes(name) ? security : meeting;
+            const target = LLM_KEYS.includes(name) ? llm
+                : SECURITY_KEYS.includes(name) ? security
+                : WHATSAPP_KEYS.includes(name) ? whatsapp
+                : meeting;
             target.insertAdjacentHTML('beforeend', field(name, settings[name]));
         });
         document.getElementById('s-redirect').textContent = payload.effectiveRedirectUri;
@@ -94,6 +107,10 @@
             ? (payload.recallEnabled ? 'links + notetaker on' : 'links on, notetaker off')
             : 'off';
         badge.className = 'badge ' + (payload.googleEnabled ? 'on' : 'off');
+
+        const whatsappBadge = document.getElementById('whatsapp-badge');
+        whatsappBadge.textContent = payload.whatsappEnabled ? 'on' : 'off';
+        whatsappBadge.className = 'badge ' + (payload.whatsappEnabled ? 'on' : 'off');
 
         if (!payload.queryReady) {
             AiSdk.message(msg, 'Add an OpenRouter API key to start answering questions.', 'warn');

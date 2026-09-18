@@ -39,6 +39,10 @@
                     <input id="record-id" type="text" value="{{recordId}}"/>
                 </div>
                 <div class="grow">
+                    <label for="record-phone">WhatsApp phone <span class="muted" style="text-transform:none;font-size:11px">(optional, or a template placeholder)</span></label>
+                    <input id="record-phone" type="text" value="{{recordPhone}}"/>
+                </div>
+                <div class="grow">
                     <label for="position">Position</label>
                     <select id="position">
                         <option value="bottom-right">bottom-right</option>
@@ -139,6 +143,7 @@ What should I follow up on next?</textarea>
         return {
             entity: entitySelect.value,
             id: document.getElementById('record-id').value,
+            phone: document.getElementById('record-phone').value,
             position: document.getElementById('position').value,
             tokenUrl: document.getElementById('token-url').value.trim(),
             label: document.getElementById('label').value
@@ -149,12 +154,14 @@ What should I follow up on next?</textarea>
         const v = values();
         const entityVal = v.entity || '{{entity}}';
         const tokenAttribute = v.tokenUrl ? `\n        data-ai-sdk-token-url="${v.tokenUrl}"` : '';
+        const phoneAttribute = v.phone ? `\n        data-ai-sdk-phone="${v.phone}"` : '';
+        const phoneField = v.phone ? `, phone: '${v.phone}'` : '';
 
         document.getElementById('snippet-tag').textContent =
 `<script src="${baseUrl()}/assets/widget.js"
         data-ai-sdk-base="${baseUrl()}"
         data-ai-sdk-entity="${entityVal}"
-        data-ai-sdk-id="${v.id}"${tokenAttribute}
+        data-ai-sdk-id="${v.id}"${tokenAttribute}${phoneAttribute}
         data-ai-sdk-position="${v.position}"
         data-ai-sdk-label="${v.label}"
         data-ai-sdk-suggestions="${suggestions().join(' | ')}"><\/script>`;
@@ -167,7 +174,7 @@ What should I follow up on next?</textarea>
     position: '${v.position}',
     launcherLabel: '${v.label}',
     suggestions: ${JSON.stringify(suggestions())},
-    targets: [{ entity: '${entityVal}', id: '${v.id}' }],
+    targets: [{ entity: '${entityVal}', id: '${v.id}'${phoneField} }],
     options: { parentDepth: 2, childDepth: 1 },
     onAnswer: response => console.log(response.answer)
   });
@@ -182,7 +189,7 @@ What should I follow up on next?</textarea>
 
 const response = await client.query({
   question: 'Summarize this record and flag anything unusual',
-  targets: [{ entity: '${entityVal}', id: '${v.id}' }],
+  targets: [{ entity: '${entityVal}', id: '${v.id}'${phoneField} }],
   options: { parentDepth: 2, childDepth: 1, maxChildrenPerRelation: 20 }
 });
 
