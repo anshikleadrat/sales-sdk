@@ -16,38 +16,16 @@ public class WhatsappContextProvider {
     private final AiSdkProperties properties;
     private final WhatsappChatService chatService;
     private final LeadPhoneResolver phoneResolver;
-    private final WhatsappStore store;
 
     public WhatsappContextProvider(AiSdkProperties properties, WhatsappChatService chatService,
-                                   LeadPhoneResolver phoneResolver, WhatsappStore store) {
+                                   LeadPhoneResolver phoneResolver) {
         this.properties = properties;
         this.chatService = chatService;
         this.phoneResolver = phoneResolver;
-        this.store = store;
     }
 
     public boolean enabled() {
         return properties.getWhatsapp().isActive();
-    }
-
-    public String fingerprint(List<String> explicitPhones) {
-        if (!enabled() || explicitPhones == null || explicitPhones.isEmpty()) {
-            return "";
-        }
-        List<String> normalized = explicitPhones.stream()
-                .map(phone -> phoneResolver.resolve(phone, null))
-                .filter(phone -> phone != null && !phone.isBlank())
-                .distinct()
-                .toList();
-        if (normalized.isEmpty()) {
-            return "";
-        }
-        try {
-            return store.fingerprint(normalized);
-        } catch (RuntimeException e) {
-            log.warn("ai-sdk: whatsapp fingerprint failed ({})", e.getMessage());
-            return "";
-        }
     }
 
     public List<Map<String, Object>> forTarget(String entity, Object id, String explicitPhone,

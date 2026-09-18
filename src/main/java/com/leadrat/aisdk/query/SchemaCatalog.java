@@ -62,10 +62,6 @@ public class SchemaCatalog {
                 .toList();
     }
 
-    public long configVersion() {
-        return configRepository.configVersion();
-    }
-
     public String describe(List<String> rootEntities) {
         StringBuilder sb = new StringBuilder();
         Set<String> visited = new LinkedHashSet<>();

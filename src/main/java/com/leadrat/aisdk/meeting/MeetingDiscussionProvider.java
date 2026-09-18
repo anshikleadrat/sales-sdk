@@ -25,18 +25,6 @@ public class MeetingDiscussionProvider {
         return properties.getMeeting().isActive();
     }
 
-    public String fingerprint(List<String> leadIds) {
-        if (!enabled()) {
-            return "";
-        }
-        try {
-            return meetingStore.discussionFingerprint(leadIds);
-        } catch (RuntimeException e) {
-            log.warn("ai-sdk: meeting discussion fingerprint failed ({})", e.getMessage());
-            return "";
-        }
-    }
-
     public List<Map<String, Object>> forTarget(String entity, Object id) {
         if (!enabled() || id == null) {
             return List.of();

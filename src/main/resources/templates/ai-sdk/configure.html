@@ -71,7 +71,7 @@
     }
 
     function guardrailOf(entityName) {
-        return schema.guardrails[entityName] || { maxRows: 50, maxChildDepth: 1, maxParentDepth: 2, customPromptInstructions: '' };
+        return schema.guardrails[entityName] || { maxRows: 50, maxChildDepth: 5, maxParentDepth: 5, customPromptInstructions: '' };
     }
 
     function updateCounts() {
@@ -249,7 +249,7 @@
                 method: 'POST',
                 body: JSON.stringify({ guardrails: payload.guardrails })
             });
-            AiSdk.message(msg, `Saved (config v${result.configVersion}). Cached answers built on the previous config are now stale.`, 'ok');
+            AiSdk.message(msg, `Saved (config v${result.configVersion}).`, 'ok');
             await load();
         } catch (e) {
             AiSdk.message(msg, e.message, 'err');

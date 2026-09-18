@@ -10,10 +10,4 @@ public record QueryResponse(String answer,
 
     public record Meta(boolean cached, String generatedAt, String plannerModel, String summarizerModel,
                        int parentDepth, int childDepth, long latencyMs) {}
-
-    public QueryResponse asCached(long latencyMs) {
-        return new QueryResponse(answer, targets, data,
-                new Meta(true, meta.generatedAt(), meta.plannerModel(), meta.summarizerModel(),
-                        meta.parentDepth(), meta.childDepth(), latencyMs));
-    }
 }

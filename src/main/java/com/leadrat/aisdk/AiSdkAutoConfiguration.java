@@ -31,7 +31,6 @@ import com.leadrat.aisdk.meeting.RecallHttp;
 import com.leadrat.aisdk.meeting.RecallPayloadMapper;
 import com.leadrat.aisdk.meeting.RecallService;
 import com.leadrat.aisdk.meeting.RecallWebhookController;
-import com.leadrat.aisdk.query.QueryCache;
 import com.leadrat.aisdk.query.QueryController;
 import com.leadrat.aisdk.query.QueryPlanValidator;
 import com.leadrat.aisdk.query.QueryPlanner;
@@ -201,11 +200,6 @@ public class AiSdkAutoConfiguration {
     }
 
     @Bean
-    public QueryCache aiSdkQueryCache(AiSdkProperties properties) {
-        return new QueryCache(properties);
-    }
-
-    @Bean
     public RateLimiter aiSdkRateLimiter(AiSdkProperties properties) {
         return new RateLimiter(properties);
     }
@@ -218,10 +212,10 @@ public class AiSdkAutoConfiguration {
     @Bean
     public QueryController aiSdkQueryController(AiSdkProperties properties, SchemaCatalog catalog, QueryPlanner planner,
                                                 QueryPlanValidator validator, TraversalEngine traversalEngine,
-                                                Summarizer summarizer, QueryCache cache, RateLimiter rateLimiter,
+                                                Summarizer summarizer, RateLimiter rateLimiter,
                                                 AuditLogService auditLog, MeetingDiscussionProvider discussionProvider,
                                                 WhatsappContextProvider whatsappProvider) {
-        return new QueryController(properties, catalog, planner, validator, traversalEngine, summarizer, cache,
+        return new QueryController(properties, catalog, planner, validator, traversalEngine, summarizer,
                 rateLimiter, auditLog, discussionProvider, whatsappProvider);
     }
 
@@ -332,9 +326,8 @@ public class AiSdkAutoConfiguration {
     @Bean
     public WhatsappContextProvider aiSdkWhatsappContextProvider(AiSdkProperties properties,
                                                                 WhatsappChatService chatService,
-                                                                LeadPhoneResolver phoneResolver,
-                                                                WhatsappStore store) {
-        return new WhatsappContextProvider(properties, chatService, phoneResolver, store);
+                                                                LeadPhoneResolver phoneResolver) {
+        return new WhatsappContextProvider(properties, chatService, phoneResolver);
     }
 
     @Bean
@@ -434,6 +427,8 @@ public class AiSdkAutoConfiguration {
             return;
         }
         passwordStore.ensurePassword(configured);
+        log.warn("ai-sdk: admin password from ai-sdk.security.admin-password: {} — open /ai-sdk/auth to sign in.",
+                configured);
     }
 
     private void announceSetup(SdkCredentials credentials, PasswordStore passwordStore) {

@@ -72,9 +72,11 @@ public class ConfigRepository {
 
             jdbc.update("""
                     INSERT INTO guardrail_config (entity_name, max_rows, max_child_depth, max_parent_depth, updated_at)
-                    VALUES (?, 50, 1, 2, ?)
+                    VALUES (?, 50, 5, 5, ?)
                     ON CONFLICT(entity_name) DO NOTHING""", meta.entityName(), now);
         }
+        jdbc.update("UPDATE guardrail_config SET max_child_depth = 5 WHERE max_child_depth = 1");
+        jdbc.update("UPDATE guardrail_config SET max_parent_depth = 5 WHERE max_parent_depth = 2");
         bumpConfigVersion();
     }
 

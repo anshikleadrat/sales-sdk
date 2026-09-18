@@ -70,11 +70,13 @@ public class SqliteConfig {
             CREATE TABLE IF NOT EXISTS guardrail_config (
                 entity_name                TEXT PRIMARY KEY,
                 max_rows                   INTEGER NOT NULL DEFAULT 50,
-                max_child_depth            INTEGER NOT NULL DEFAULT 1,
-                max_parent_depth           INTEGER NOT NULL DEFAULT 2,
+                max_child_depth            INTEGER NOT NULL DEFAULT 5,
+                max_parent_depth           INTEGER NOT NULL DEFAULT 5,
                 custom_prompt_instructions TEXT,
                 updated_at                 TEXT
             )""");
+        jdbc.update("UPDATE guardrail_config SET max_child_depth = 5 WHERE max_child_depth = 1");
+        jdbc.update("UPDATE guardrail_config SET max_parent_depth = 5 WHERE max_parent_depth = 2");
         jdbc.execute("""
             CREATE TABLE IF NOT EXISTS query_audit_log (
                 id              INTEGER PRIMARY KEY AUTOINCREMENT,

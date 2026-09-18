@@ -173,18 +173,6 @@ public class MeetingStore {
                 ORDER BY occurred_at DESC, id DESC LIMIT ?""", discussionMapper, leadId, limit);
     }
 
-    public String discussionFingerprint(List<String> leadIds) {
-        if (leadIds == null || leadIds.isEmpty()) {
-            return "";
-        }
-        String placeholders = String.join(",", java.util.Collections.nCopies(leadIds.size(), "?"));
-        String fingerprint = jdbc.queryForObject("""
-                SELECT COUNT(*) || ':' || COALESCE(MAX(received_at), '')
-                FROM meeting_discussion WHERE lead_id IN (%s)""".formatted(placeholders),
-                String.class, leadIds.toArray());
-        return fingerprint == null ? "" : fingerprint;
-    }
-
     public List<Discussion> discussionsForMeeting(String meetingId) {
         return jdbc.query("SELECT * FROM meeting_discussion WHERE meeting_id = ? ORDER BY occurred_at DESC, id DESC",
                 discussionMapper, meetingId);

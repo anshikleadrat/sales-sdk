@@ -32,7 +32,6 @@ public class QueryController {
     private final QueryPlanValidator validator;
     private final TraversalEngine traversalEngine;
     private final Summarizer summarizer;
-    private final QueryCache cache;
     private final RateLimiter rateLimiter;
     private final AuditLogService auditLog;
     private final MeetingDiscussionProvider discussionProvider;
@@ -40,7 +39,7 @@ public class QueryController {
 
     public QueryController(AiSdkProperties properties, SchemaCatalog catalog, QueryPlanner planner,
                            QueryPlanValidator validator, TraversalEngine traversalEngine, Summarizer summarizer,
-                           QueryCache cache, RateLimiter rateLimiter, AuditLogService auditLog,
+                           RateLimiter rateLimiter, AuditLogService auditLog,
                            MeetingDiscussionProvider discussionProvider, WhatsappContextProvider whatsappProvider) {
         this.properties = properties;
         this.catalog = catalog;
@@ -48,7 +47,6 @@ public class QueryController {
         this.validator = validator;
         this.traversalEngine = traversalEngine;
         this.summarizer = summarizer;
-        this.cache = cache;
         this.rateLimiter = rateLimiter;
         this.auditLog = auditLog;
         this.discussionProvider = discussionProvider;
@@ -89,20 +87,6 @@ public class QueryController {
 
         QueryPlan plan = planner.plan(request.question(), catalog.describe(targetEntities), request.targets());
         EffectivePlan effectivePlan = validator.validate(plan, request, targetEntities);
-
-        String contextFingerprint = discussionProvider.fingerprint(request.targets().stream()
-                        .map(target -> String.valueOf(target.id())).distinct().toList())
-                + "|" + whatsappProvider.fingerprint(request.targets().stream()
-                        .map(QueryRequest.Target::phone).filter(phone -> phone != null && !phone.isBlank())
-                        .distinct().toList());
-        String cacheKey = cache.key(request, effectivePlan, catalog.configVersion(), contextFingerprint);
-        QueryResponse cached = cache.get(cacheKey);
-        if (cached != null) {
-            long latency = System.currentTimeMillis() - started;
-            auditLog.record(request.question(), targetSummary(request), String.join(",", targetEntities),
-                    countRows(cached), true, latency, properties.getLlm().getSummarizerModel());
-            return ResponseEntity.ok(cached.asCached(latency));
-        }
 
         List<TraversalResult> results;
         try {
@@ -168,7 +152,6 @@ public class QueryController {
                 new QueryResponse.Meta(false, Instant.now().toString(), properties.getLlm().getPlannerModel(),
                         properties.getLlm().getSummarizerModel(), effectivePlan.parentDepth(),
                         effectivePlan.childDepth(), latency));
-        cache.put(cacheKey, response);
         auditLog.record(request.question(), targetSummary(request), String.join(",", entitiesTouched),
                 totalRows, false, latency, properties.getLlm().getSummarizerModel());
         return ResponseEntity.ok(response);
@@ -184,28 +167,6 @@ public class QueryController {
             }
         }
         return null;
-    }
-
-    @SuppressWarnings("unchecked")
-    private int countRows(QueryResponse response) {
-        int rows = 0;
-        for (Object node : response.data().values()) {
-            if (!(node instanceof Map<?, ?> map)) {
-                continue;
-            }
-            rows += 1;
-            if (map.get("parents") instanceof List<?> parents) {
-                rows += parents.size();
-            }
-            if (map.get("children") instanceof List<?> groups) {
-                for (Object group : groups) {
-                    if (group instanceof TraversalResult.ChildGroup childGroup) {
-                        rows += childGroup.items().size();
-                    }
-                }
-            }
-        }
-        return rows;
     }
 
     private String targetSummary(QueryRequest request) {

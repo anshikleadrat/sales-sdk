@@ -98,7 +98,7 @@ Unset it to go back to the OTP flow and manage the password through the page ins
 
 Anything above can still be set the usual Spring way if you prefer, under the `ai-sdk` prefix
 (`AI_SDK_LLM_API_KEY`, `ai-sdk.llm.api-key`, …), along with the tuning knobs that have sane defaults:
-`storage.sqlite-path`, `security.jwt-expiry-minutes`, `query.*` (cache TTL, depths, row caps,
+`storage.sqlite-path`, `security.jwt-expiry-minutes`, `query.*` (depths, row caps,
 `rate-limit-per-minute`, `db-timeout-seconds`) and `license.*`.
 
 ## Endpoints
@@ -128,7 +128,7 @@ Anything above can still be set the usual Spring way if you prefer, under the `a
 {
   "question": "Summarize these clients and flag anyone at churn risk",
   "targets": [{ "entity": "Client", "id": "4521" }, { "entity": "Lead", "id": "8890" }],
-  "options": { "childDepth": 1, "parentDepth": 2, "maxChildrenPerRelation": 20 }
+  "options": { "childDepth": 5, "parentDepth": 5, "maxChildrenPerRelation": 50 }
 }
 ```
 

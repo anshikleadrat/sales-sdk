@@ -175,7 +175,7 @@ What should I follow up on next?</textarea>
     launcherLabel: '${v.label}',
     suggestions: ${JSON.stringify(suggestions())},
     targets: [{ entity: '${entityVal}', id: '${v.id}'${phoneField} }],
-    options: { parentDepth: 2, childDepth: 1 },
+    options: { parentDepth: 5, childDepth: 5 },
     onAnswer: response => console.log(response.answer)
   });
 
@@ -190,7 +190,7 @@ What should I follow up on next?</textarea>
 const response = await client.query({
   question: 'Summarize this record and flag anything unusual',
   targets: [{ entity: '${entityVal}', id: '${v.id}'${phoneField} }],
-  options: { parentDepth: 2, childDepth: 1, maxChildrenPerRelation: 20 }
+  options: { parentDepth: 5, childDepth: 5, maxChildrenPerRelation: 50 }
 });
 
 console.log(response.answer, response.data, response.meta);`;

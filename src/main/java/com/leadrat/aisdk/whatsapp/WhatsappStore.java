@@ -59,18 +59,6 @@ public class WhatsappStore {
                 ORDER BY sent_at DESC, id DESC LIMIT ?""", mapper, phone, limit);
     }
 
-    public String fingerprint(List<String> phones) {
-        if (phones == null || phones.isEmpty()) {
-            return "";
-        }
-        String placeholders = String.join(",", java.util.Collections.nCopies(phones.size(), "?"));
-        String fingerprint = jdbc.queryForObject("""
-                SELECT COUNT(*) || ':' || COALESCE(MAX(fetched_at), '')
-                FROM whatsapp_message WHERE phone IN (%s)""".formatted(placeholders),
-                String.class, phones.toArray());
-        return fingerprint == null ? "" : fingerprint;
-    }
-
     public Optional<Instant> lastFetchedAt(String phone) {
         return jdbc.query("SELECT last_fetched_at FROM whatsapp_sync WHERE phone = ?",
                 (rs, rowNum) -> instant(rs, "last_fetched_at"), phone).stream().findFirst();

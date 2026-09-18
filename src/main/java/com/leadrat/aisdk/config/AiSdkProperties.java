@@ -99,18 +99,15 @@ public class AiSdkProperties {
     }
 
     public static class Query {
-        private int cacheTtlMinutes = 20;
         private int maxTargetsPerRequest = 25;
-        private int defaultChildDepth = 1;
-        private int defaultParentDepth = 2;
-        private int maxChildDepth = 3;
-        private int maxParentDepth = 3;
+        private int defaultChildDepth = 5;
+        private int defaultParentDepth = 5;
+        private int maxChildDepth = 5;
+        private int maxParentDepth = 5;
         private int maxChildrenPerRelation = 50;
         private int dbTimeoutSeconds = 5;
         private int rateLimitPerMinute = 30;
 
-        public int getCacheTtlMinutes() { return cacheTtlMinutes; }
-        public void setCacheTtlMinutes(int cacheTtlMinutes) { this.cacheTtlMinutes = cacheTtlMinutes; }
         public int getMaxTargetsPerRequest() { return maxTargetsPerRequest; }
         public void setMaxTargetsPerRequest(int maxTargetsPerRequest) { this.maxTargetsPerRequest = maxTargetsPerRequest; }
         public int getDefaultChildDepth() { return defaultChildDepth; }
