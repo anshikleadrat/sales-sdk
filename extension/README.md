@@ -38,6 +38,13 @@ their records.
   When it finds them and the extension is signed in, it mounts a launcher in the corner of
   the page. The panel renders in a shadow DOM, so the host page's styles cannot affect it
   and it cannot affect them.
+- `markdown.js` turns the answer, which the endpoint returns as markdown, into HTML for both
+  the popup and the in-page panel. It is a copy of the SDK's own
+  `static/ai-sdk/assets/markdown.js` — the extension ships standalone and cannot load a
+  script from the deployment under the Manifest V3 CSP, so the two files must be kept in
+  sync. It escapes the answer before emitting anything and only ever produces a fixed set
+  of tags, and it renders neither images nor anchors, so a URL that reached the answer from
+  a record value cannot fire a request or be clicked.
 
 ## Packaging
 

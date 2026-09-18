@@ -355,6 +355,52 @@ code {
     min-height: 60px;
 }
 
+.card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.card-head h2 { margin: 0; flex: 1; }
+
+/* ── Rendered answer prose ── */
+.answer-md { white-space: normal; }
+.answer-md > :first-child { margin-top: 0; }
+.answer-md > :last-child { margin-bottom: 0; }
+.answer-md p { margin: 0 0 10px; }
+.answer-md h2 { font-size: 14px; font-weight: 600; margin: 18px 0 8px; }
+.answer-md h3 { font-size: 13px; font-weight: 600; margin: 16px 0 6px; }
+.answer-md h4 { font-size: 13px; font-weight: 600; margin: 14px 0 6px; color: var(--muted); }
+.answer-md ul, .answer-md ol { margin: 0 0 10px; padding-left: 20px; }
+.answer-md li { margin: 3px 0; }
+.answer-md li > ul, .answer-md li > ol { margin: 3px 0 0; }
+.answer-md strong { font-weight: 600; color: var(--text); }
+.answer-md hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+.answer-md blockquote {
+    margin: 0 0 10px;
+    padding: 2px 0 2px 12px;
+    border-left: 3px solid var(--border);
+    color: var(--muted);
+}
+.answer-md blockquote > :last-child { margin-bottom: 0; }
+.answer-md pre {
+    margin: 0 0 10px;
+    padding: 10px 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow-x: auto;
+    max-height: none;
+    line-height: 1.6;
+}
+.answer-md pre code { background: none; border: none; padding: 0; }
+.answer-md .md-table { overflow-x: auto; margin: 0 0 12px; }
+.answer-md table { border-collapse: collapse; width: 100%; font-size: 12px; }
+.answer-md th, .answer-md td {
+    border: 1px solid var(--border);
+    padding: 6px 9px;
+    text-align: left;
+    vertical-align: top;
+}
+.answer-md th { background: var(--panel-3); font-weight: 600; white-space: nowrap; }
+.answer-md .md-center { text-align: center; }
+.answer-md .md-right { text-align: right; }
+
 /* ── Pills ── */
 .pill {
     font-size: 11px;

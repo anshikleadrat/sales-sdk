@@ -33,7 +33,10 @@
             <button id="run" class="grow">Ask</button>
             <button id="sign-out" class="secondary">Sign out</button>
         </div>
-        <div id="meta" class="muted" style="margin-top:8px"></div>
+        <div class="row" id="answer-head" style="margin-top:8px">
+            <span id="meta" class="muted grow"></span>
+            <button id="copy-answer" class="secondary hidden" type="button">Copy</button>
+        </div>
         <div id="answer" class="answer hidden"></div>
         <details id="records" class="hidden">
             <summary>Retrieved records</summary>
@@ -43,6 +46,7 @@
 
     <div id="msg" class="msg"></div>
 </main>
+<script src="markdown.js"></script>
 <script src="popup.js"></script>
 </body>
 </html>

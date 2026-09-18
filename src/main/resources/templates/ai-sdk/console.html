@@ -47,7 +47,10 @@
     </div>
 
     <div class="card">
-        <h2>Answer</h2>
+        <div class="card-head">
+            <h2>Answer</h2>
+            <button id="copy-answer" class="secondary" type="button" style="display:none">Copy markdown</button>
+        </div>
         <div id="answer" class="answer muted">No answer yet.</div>
     </div>
 
@@ -57,6 +60,7 @@
     </div>
 </main>
 <script th:src="@{/ai-sdk/assets/app.js}"></script>
+<script th:src="@{/ai-sdk/assets/markdown.js}"></script>
 <script>
     const msg = document.getElementById('msg');
     const targetsEl = document.getElementById('targets');
@@ -151,9 +155,7 @@
                     }
                 })
             });
-            const answer = document.getElementById('answer');
-            answer.textContent = body.answer;
-            answer.className = 'answer';
+            renderAnswer(body.answer);
             document.getElementById('data').textContent = JSON.stringify(body.data, null, 2);
             document.getElementById('meta').textContent =
                 `${body.meta.cached ? 'cached' : 'fresh'} · parents ${body.meta.parentDepth} · children ${body.meta.childDepth} · ${body.meta.latencyMs} ms`;
@@ -166,6 +168,33 @@
             askBtn.disabled = false;
             askBtn.textContent = 'Run query';
         }
+    });
+
+    const copyBtn = document.getElementById('copy-answer');
+    let lastAnswer = '';
+
+    function renderAnswer(text) {
+        const answer = document.getElementById('answer');
+        lastAnswer = text || '';
+        try {
+            answer.innerHTML = AiSdkMarkdown.render(lastAnswer);
+            answer.className = 'answer answer-md';
+        } catch (e) {
+            answer.textContent = lastAnswer;
+            answer.className = 'answer';
+        }
+        copyBtn.style.display = lastAnswer ? '' : 'none';
+        copyBtn.textContent = 'Copy markdown';
+    }
+
+    copyBtn.addEventListener('click', async () => {
+        try {
+            await navigator.clipboard.writeText(lastAnswer);
+            copyBtn.textContent = 'Copied';
+        } catch (e) {
+            copyBtn.textContent = 'Copy failed';
+        }
+        setTimeout(() => { copyBtn.textContent = 'Copy markdown'; }, 1500);
     });
 
     document.addEventListener('DOMContentLoaded', load);

@@ -27,6 +27,29 @@
         .ask:disabled { opacity: .55; cursor: not-allowed; }
         .meta { margin-left: 10px; font-size: 11px; color: #9aa5b1; }
         .answer { white-space: pre-wrap; margin-top: 12px; padding: 11px; background: #1e242c; border: 1px solid #2a323c; border-radius: 8px; line-height: 1.5; }
+        .answer-md { white-space: normal; }
+        .answer-md > :first-child { margin-top: 0; }
+        .answer-md > :last-child { margin-bottom: 0; }
+        .answer-md p { margin: 0 0 8px; }
+        .answer-md h2 { font-size: 13px; font-weight: 600; margin: 14px 0 6px; }
+        .answer-md h3, .answer-md h4 { font-size: 12.5px; font-weight: 600; margin: 12px 0 5px; }
+        .answer-md h4 { color: #9aa5b1; }
+        .answer-md ul, .answer-md ol { margin: 0 0 8px; padding-left: 18px; }
+        .answer-md li { margin: 2px 0; }
+        .answer-md li > ul, .answer-md li > ol { margin: 2px 0 0; }
+        .answer-md strong { font-weight: 600; color: #e6eaef; }
+        .answer-md hr { border: none; border-top: 1px solid #2a323c; margin: 12px 0; }
+        .answer-md blockquote { margin: 0 0 8px; padding: 2px 0 2px 10px; border-left: 3px solid #2a323c; color: #9aa5b1; }
+        .answer-md blockquote > :last-child { margin-bottom: 0; }
+        .answer-md code { background: #171b21; border: 1px solid #2a323c; border-radius: 4px; padding: 0 4px; font-family: ui-monospace, SFMono-Regular, Consolas, Menlo, monospace; font-size: .92em; }
+        .answer-md pre { margin: 0 0 8px; padding: 9px 10px; background: #12161b; border: 1px solid #2a323c; border-radius: 6px; overflow-x: auto; max-height: 220px; }
+        .answer-md pre code { background: none; border: none; padding: 0; font-size: 11.5px; }
+        .answer-md .md-table { overflow-x: auto; margin: 0 0 10px; }
+        .answer-md table { border-collapse: collapse; width: 100%; font-size: 11.5px; }
+        .answer-md th, .answer-md td { border: 1px solid #2a323c; padding: 5px 7px; text-align: left; vertical-align: top; }
+        .answer-md th { background: #171b21; font-weight: 600; white-space: nowrap; }
+        .answer-md .md-center { text-align: center; }
+        .answer-md .md-right { text-align: right; }
         .error { margin-top: 10px; padding: 9px 11px; border-radius: 8px; background: rgba(248,81,73,.12); color: #f85149; font-size: 12px; }
         .hidden { display: none; }
     `;
@@ -87,6 +110,17 @@
         return ui;
     }
 
+    function renderAnswer(text) {
+        const value = text || '';
+        try {
+            ui.answer.innerHTML = window.AiSdkMarkdown.render(value);
+            ui.answer.className = 'answer answer-md';
+        } catch (e) {
+            ui.answer.textContent = value;
+            ui.answer.className = 'answer';
+        }
+    }
+
     async function run() {
         const question = ui.question.value.trim();
         ui.error.classList.add('hidden');
@@ -111,8 +145,7 @@
             ui.error.classList.remove('hidden');
             return;
         }
-        ui.answer.textContent = result.body.answer;
-        ui.answer.classList.remove('hidden');
+        renderAnswer(result.body.answer);
         ui.meta.textContent = `${result.body.meta.cached ? 'cached' : 'fresh'} · ${result.body.meta.latencyMs} ms`;
     }
 

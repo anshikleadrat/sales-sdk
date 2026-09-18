@@ -67,6 +67,12 @@ signed-in users and returns `{ "token": "..." }`, so the admin password never re
 `extension/` holds a Chrome MV3 extension that does the same against any page marked up with
 `data-ai-sdk-entity` / `data-ai-sdk-id`.
 
+`QueryResponse.answer` is markdown. The widget, the extension and the query console render it with
+`/ai-sdk/assets/markdown.js`, a dependency-free renderer that escapes the answer before emitting
+anything and only ever produces a fixed tag set. It renders neither images nor anchors: the answer
+is derived from database rows, so a URL that reached it from a record value shows as inert `code`
+rather than something that can fire a request or be clicked.
+
 ## Configure it
 
 **Everything is configured on `/ai-sdk/settings` and stored in the SDK's own SQLite file.** Changes are
