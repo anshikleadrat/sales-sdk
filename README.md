@@ -83,11 +83,18 @@ as *from host*; what you save on the page wins.
 | `meeting.recall.api-key` / `webhook-secret` | unset — fill them in and the notetaker bot turns on |
 | `meeting.lead-entity` | `Lead` |
 | `security.allowed-origins` | empty (no CORS headers); needed only for a cross-origin frontend |
+| `security.admin-password` | unset — the one-time OTP flow via `/ai-sdk/setup` instead |
 
 Nothing else needs setting. The admin OTP, the JWT signing secret and the Google token-encryption key are
 generated and persisted on first start; the SQLite store falls back to a temp directory if its path is not
 writable; and each feature enables itself once its credentials are present — `ai-sdk.meeting.enabled`,
 `...google.enabled` and `...recall.enabled` exist only to force a feature **off**.
+
+`security.admin-password` is the alternative to the OTP dance: set it and the admin password is
+synced from it on every boot (at least 12 characters), so a fresh deployment authenticates
+immediately with no `/ai-sdk/setup` visit at all. It stays authoritative across restarts — if
+someone later sets a different password through the setup page, the next boot puts this one back.
+Unset it to go back to the OTP flow and manage the password through the page instead.
 
 Anything above can still be set the usual Spring way if you prefer, under the `ai-sdk` prefix
 (`AI_SDK_LLM_API_KEY`, `ai-sdk.llm.api-key`, …), along with the tuning knobs that have sane defaults:
@@ -148,7 +155,8 @@ business rows. It is created `0600`; keep it out of version control.
 
 To reset the password: stop the app, delete the row in `admin_setup` and the `setup-otp` row in
 `sdk_secret`, restart, and run `/ai-sdk/setup` again. Deleting the `jwt-secret` row invalidates every
-issued token.
+issued token. If `security.admin-password` is set, deleting `admin_setup` does not reset anything —
+the next boot resyncs it right back; change or unset that config instead.
 
 ## Publishing
 

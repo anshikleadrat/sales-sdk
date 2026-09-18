@@ -24,6 +24,16 @@ public class PasswordStore {
                 encoder.encode(rawPassword), Instant.now().toString());
     }
 
+    public void ensurePassword(String rawPassword) {
+        if (isSetupCompleted() && matches(rawPassword)) {
+            return;
+        }
+        jdbc.update("""
+            INSERT INTO admin_setup (id, password_hash, setup_completed_at) VALUES (1, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET password_hash = excluded.password_hash""",
+                encoder.encode(rawPassword), Instant.now().toString());
+    }
+
     public boolean matches(String rawPassword) {
         String hash = jdbc.query("SELECT password_hash FROM admin_setup WHERE id = 1",
                 (rs, i) -> rs.getString(1)).stream().findFirst().orElse(null);

@@ -40,12 +40,15 @@ public class AiSdkProperties {
 
     public static class Security {
         private String otp;
+        private String adminPassword;
         private String jwtSecret;
         private int jwtExpiryMinutes = 60;
         private List<String> allowedOrigins = new ArrayList<>();
 
         public String getOtp() { return otp; }
         public void setOtp(String otp) { this.otp = otp; }
+        public String getAdminPassword() { return adminPassword; }
+        public void setAdminPassword(String adminPassword) { this.adminPassword = adminPassword; }
         public String getJwtSecret() { return jwtSecret; }
         public void setJwtSecret(String jwtSecret) { this.jwtSecret = jwtSecret; }
         public int getJwtExpiryMinutes() { return jwtExpiryMinutes; }
